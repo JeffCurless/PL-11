@@ -13,6 +13,7 @@ namespace pl11 {
 
 const std::unordered_map<std::string, TokenKind> Lexer::keywords_ = {
     {"AND",       TokenKind::TOK_AND},
+    {"ARRAY",     TokenKind::TOK_ARRAY},
     {"BYTE",      TokenKind::TOK_BYTE},
     {"ASM",       TokenKind::TOK_ASM},
     {"BEGIN",     TokenKind::TOK_BEGIN},
@@ -28,6 +29,7 @@ const std::unordered_map<std::string, TokenKind> Lexer::keywords_ = {
     {"FLOAT",     TokenKind::TOK_FLOAT},
     {"FOR",       TokenKind::TOK_FOR},
     {"FORWARD",   TokenKind::TOK_FORWARD},
+    {"FROM",      TokenKind::TOK_FROM},
     {"GOTO",      TokenKind::TOK_GOTO},
     {"IF",        TokenKind::TOK_IF},
     {"IN",        TokenKind::TOK_IN},
@@ -48,6 +50,7 @@ const std::unordered_map<std::string, TokenKind> Lexer::keywords_ = {
     {"SHR",       TokenKind::TOK_SHR},
     {"SHRA",      TokenKind::TOK_SHRA},
     {"SP",        TokenKind::TOK_SP},
+    {"STEP",      TokenKind::TOK_STEP},
     {"THEN",      TokenKind::TOK_THEN},
     {"TO",        TokenKind::TOK_TO},
     {"UNTIL",     TokenKind::TOK_UNTIL},
@@ -61,17 +64,17 @@ const char* tokenKindName(TokenKind k) {
 #define CASE(x) case TokenKind::x: return #x
     CASE(TOK_INTEGER_LIT); CASE(TOK_REAL_LIT); CASE(TOK_STRING_LIT);
     CASE(TOK_BIT_LIT); CASE(TOK_ADDRESS_LIT); CASE(TOK_IDENTIFIER);
-    CASE(TOK_AND); CASE(TOK_ASM); CASE(TOK_BEGIN); CASE(TOK_BIT); CASE(TOK_BYTE);
+    CASE(TOK_AND); CASE(TOK_ARRAY); CASE(TOK_ASM); CASE(TOK_BEGIN); CASE(TOK_BIT); CASE(TOK_BYTE);
     CASE(TOK_CALL); CASE(TOK_CASE); CASE(TOK_CHARACTER); CASE(TOK_CONSTANT);
     CASE(TOK_DO); CASE(TOK_DOWNTO); CASE(TOK_ELSE); CASE(TOK_END);
-    CASE(TOK_FLOAT); CASE(TOK_FOR); CASE(TOK_FORWARD); CASE(TOK_GOTO);
+    CASE(TOK_FLOAT); CASE(TOK_FOR); CASE(TOK_FORWARD); CASE(TOK_FROM); CASE(TOK_GOTO);
     CASE(TOK_IF); CASE(TOK_IN); CASE(TOK_INTEGER); CASE(TOK_LONG); CASE(TOK_MOD);
     CASE(TOK_NOT); CASE(TOK_OF); CASE(TOK_OR); CASE(TOK_OUT);
     CASE(TOK_PC); CASE(TOK_PRINT); CASE(TOK_PROCEDURE); CASE(TOK_REAL); CASE(TOK_REPEAT);
     CASE(TOK_RETURN); CASE(TOK_SHL); CASE(TOK_SHR); CASE(TOK_SHRA);
-    CASE(TOK_SP); CASE(TOK_THEN); CASE(TOK_TO); CASE(TOK_UNTIL);
+    CASE(TOK_SP); CASE(TOK_STEP); CASE(TOK_THEN); CASE(TOK_TO); CASE(TOK_UNTIL);
     CASE(TOK_WHILE); CASE(TOK_WORD); CASE(TOK_XOR); CASE(TOK_REGISTER);
-    CASE(TOK_ASSIGN); CASE(TOK_EQ); CASE(TOK_NEQ); CASE(TOK_LT);
+    CASE(TOK_ASSIGN); CASE(TOK_ARROW); CASE(TOK_EQ); CASE(TOK_NEQ); CASE(TOK_LT);
     CASE(TOK_GT); CASE(TOK_LEQ); CASE(TOK_GEQ); CASE(TOK_PLUS);
     CASE(TOK_MINUS); CASE(TOK_STAR); CASE(TOK_SLASH); CASE(TOK_AT);
     CASE(TOK_DEREF); CASE(TOK_LPAREN); CASE(TOK_RPAREN); CASE(TOK_SEMI);
@@ -131,7 +134,7 @@ void Lexer::skipWhitespace() {
         advance();
 }
 
-// Skip (* ... *) comments (non-nested for simplicity; nesting is rare in PL-11 code)
+// Skip (* ... *) comments — nested, so (* (* *) *) works
 void Lexer::skipComment() {
     // current() == '(' and peek1() == '*'
     advance(); advance();  // consume (*
@@ -141,6 +144,44 @@ void Lexer::skipComment() {
         else if (current() == '*' && peek1() == ')') { advance(); advance(); --depth; }
         else advance();
     }
+}
+
+// Skip % line comment — from '%' to (but not including) the newline
+void Lexer::skipLineComment() {
+    // current() == '%'
+    while (pos_ < src_.size() && current() != '\n')
+        advance();
+    // Leave the '\n' for skipWhitespace to consume so line_ increments correctly
+}
+
+// Check whether the current position starts with the word COMMENT
+// (case-insensitive) followed by a non-identifier character.
+bool Lexer::isCommentKeyword() const {
+    if (!std::isalpha(static_cast<unsigned char>(current()))) return false;
+    constexpr std::string_view kw = "COMMENT";
+    if (pos_ + kw.size() > src_.size()) return false;
+    for (size_t i = 0; i < kw.size(); ++i) {
+        if (std::toupper(static_cast<unsigned char>(src_[pos_ + i])) != kw[i])
+            return false;
+    }
+    // Must be followed by a non-identifier character (or EOF)
+    size_t after = pos_ + kw.size();
+    if (after < src_.size() &&
+        (std::isalnum(static_cast<unsigned char>(src_[after])) || src_[after] == '_'))
+        return false;
+    return true;
+}
+
+// Skip COMMENT statement — consume the word COMMENT then everything up to
+// and including the terminating semicolon.
+void Lexer::skipCommentStatement() {
+    // Skip the word "COMMENT" (7 characters)
+    for (int i = 0; i < 7; ++i) advance();
+    // Skip body until ';'
+    while (pos_ < src_.size() && current() != ';')
+        advance();
+    if (pos_ < src_.size())
+        advance();  // consume the ';'
 }
 
 Token Lexer::readIdentifierOrKeyword() {
@@ -339,11 +380,15 @@ Token Lexer::readOperator() {
     case '>':
         if (c1 == '=') return tok(TokenKind::TOK_GEQ, 2);
         return tok(TokenKind::TOK_GT, 1);
-    case '=':  return tok(TokenKind::TOK_EQ,     1);
+    case '=':
+        if (c1 == '>') return tok(TokenKind::TOK_ARROW, 2);
+        return tok(TokenKind::TOK_EQ, 1);
     case '+':  return tok(TokenKind::TOK_PLUS,   1);
     case '-':  return tok(TokenKind::TOK_MINUS,  1);
     case '*':  return tok(TokenKind::TOK_STAR,   1);
-    case '/':  return tok(TokenKind::TOK_SLASH,  1);
+    case '/':
+        if (c1 == '=') return tok(TokenKind::TOK_NEQ, 2);
+        return tok(TokenKind::TOK_SLASH, 1);
     case '@':  return tok(TokenKind::TOK_AT,     1);
     case '^':  return tok(TokenKind::TOK_DEREF,  1);
     case '(':  return tok(TokenKind::TOK_LPAREN, 1);
@@ -363,11 +408,15 @@ Token Lexer::next() {
         return peekTok_;
     }
 
-    // Skip whitespace and comments
+    // Skip whitespace and comments (all forms)
     while (true) {
         skipWhitespace();
         if (current() == '(' && peek1() == '*') {
-            skipComment();
+            skipComment();           // (* ... *)
+        } else if (current() == '%') {
+            skipLineComment();       // % ... <eol>
+        } else if (isCommentKeyword()) {
+            skipCommentStatement();  // COMMENT ... ;
         } else {
             break;
         }

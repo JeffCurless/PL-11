@@ -241,13 +241,14 @@ struct ForStmtNode : ASTNode {
     std::string loopVar;
     ASTNodePtr  start;
     ASTNodePtr  end;
-    bool        downto;   // true → DOWNTO, false → TO
+    ASTNodePtr  step;       // null → use ±1 (sign from downto flag)
+    bool        downto;     // true → DOWNTO, false → TO
     ASTNodePtr  body;
     ASTNodePtr  untilCond;  // null if no UNTIL clause
-    ForStmtNode(std::string v, ASTNodePtr s, ASTNodePtr e, bool dt,
+    ForStmtNode(std::string v, ASTNodePtr s, ASTNodePtr e, ASTNodePtr st, bool dt,
                 ASTNodePtr b, ASTNodePtr u, SourceLoc l)
         : ASTNode(NodeKind::FOR_STMT, l), loopVar(std::move(v)),
-          start(std::move(s)), end(std::move(e)), downto(dt),
+          start(std::move(s)), end(std::move(e)), step(std::move(st)), downto(dt),
           body(std::move(b)), untilCond(std::move(u)) {}
 };
 

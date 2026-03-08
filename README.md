@@ -5,6 +5,14 @@ described in CERN Technical Report [CERN-74-24](https://cds.cern.ch/record/88046
 (R.D. Russell, 1974). The compiler emits LLVM IR, which can be lowered to native code by the
 standard LLVM toolchain.
 
+### Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Language Reference](docs/pl11-language-reference.md) | Full language reference: types, operators, control structures, procedures |
+| [EBNF Grammar](grammar/pl11.ebnf) | Formal EBNF grammar of the complete language |
+| [ANTLR4 Grammar](grammar/pl11.g4) | ANTLR4 grammar for toolchain integration |
+
 ---
 
 ## Background
@@ -30,9 +38,11 @@ PL-11 is an ALGOL-family, block-structured language with the following features:
 - `BEGIN … END` blocks with lexically scoped declarations
 - Types: `BYTE` (8-bit), `WORD`/`INTEGER` (16-bit), `LONG` (32-bit), `REAL`/`FLOAT` (32-bit
   float), `CHARACTER*N` (byte strings), `BIT*N` (bit strings)
-- Arrays declared inline with dimension lists: `WORD A(10)`, `WORD B(3, 4)`
+- Arrays in two syntaxes: `WORD A(10)` (traditional) or `ARRAY 10 WORD A` (UNH); both support
+  multi-dimensional: `WORD B(3, 4)` / `ARRAY 3, 4 WORD B`
+- Three comment forms: `(* … *)` block, `% … ` line (to end of line), `COMMENT … ;` keyword
 - Control flow: `IF-THEN-ELSE`, `WHILE-DO`, `FOR-TO/DOWNTO-DO`, `REPEAT-UNTIL`, `CASE-OF-END`;
-  UNH extensions add `DO` loop and optional `UNTIL` clause on `WHILE` and `FOR`
+  UNH extensions add `DO` loop, optional `UNTIL` on `WHILE`/`FOR`, and `FOR … FROM … STEP`
 - Procedures with typed parameters and `IN`/`OUT`/`IN OUT` passing modes; typed functions via
   `type PROCEDURE name(…)`
 - `GOTO` with forward and backward labels
@@ -86,6 +96,72 @@ UNTIL A(I) = KEY
 The `UNTIL` keyword already existed in the original language (used by `REPEAT … UNTIL`); no
 new reserved words were introduced.
 
+#### Comment extensions — `%` and `COMMENT`
+
+Two additional comment forms were added alongside the original `(* … *)` block comment:
+
+**Percent line comment** — `%` outside a string literal starts a comment that extends to the end of the line:
+
+```
+WORD COUNT;      % number of items processed
+I := I + 1;      % advance to next element
+```
+
+**Keyword comment** — `COMMENT` starts a comment that runs until the next `;`, and may span multiple lines:
+
+```
+COMMENT Set up initial values;
+
+COMMENT
+    This routine initialises the hardware interface.
+    It must be called once before the event loop starts.
+;
+```
+
+The terminating `;` is consumed by the comment and does not act as a statement separator. Neither form requires new reserved words beyond `COMMENT` itself.
+
+#### `FOR` loop extensions — `FROM`, `STEP`, and no-start form
+
+The UNH extensions add two new keywords and three new FOR loop header forms. All forms may be freely mixed in the same program and combine with `UNTIL`.
+
+```
+FOR var := start           [TO|DOWNTO] end DO ...   (* original *)
+FOR var FROM start [STEP n] [TO|DOWNTO] end DO ...   (* with start *)
+FOR var            [STEP n] [TO|DOWNTO] end DO ...   (* no start — use current value *)
+```
+
+**`FROM`** replaces `:=` as the start-value introducer. When both `FROM` and `:=` are absent, the loop variable is **not initialised** — it begins at whatever value it already holds. This allows continuing a scan where a previous loop left off, or using a register value directly.
+
+**`STEP`** gives an explicit per-iteration increment (any arithmetic expression, including a negative literal). When omitted the default is `+1` for `TO` and `−1` for `DOWNTO`.
+
+```
+FOR I FROM 1  STEP 2  TO  9 DO ...   (* 1, 3, 5, 7, 9      *)
+FOR I FROM 10 STEP -2 DOWNTO 2 DO ... (* 10, 8, 6, 4, 2    *)
+I := 5;
+FOR I STEP -1 DOWNTO 1 DO ...        (* starts at 5: 5,4,3,2,1 *)
+I := 3;
+FOR I TO 10 DO ...                   (* starts at 3: 3,4,…,10  *)
+```
+
+#### `ARRAY` declaration syntax
+
+An alternative array declaration form places the element count before the type:
+
+```
+ARRAY size TYPE name
+```
+
+This is a direct equivalent of the traditional `TYPE name(size)` form and compiles identically:
+
+```
+ARRAY 512  BYTE  BUFFER;      (* same as BYTE BUFFER(512)     *)
+ARRAY 10   WORD  STACK;       (* same as WORD STACK(10)       *)
+ARRAY 3, 4 REAL  MATRIX;      (* same as REAL MATRIX(3, 4)    *)
+ARRAY 4    WORD  ROW, COL;    (* two separate arrays of 4     *)
+```
+
+Both syntaxes may be freely mixed within the same program. The word `ARRAY` is now a reserved keyword.
+
 #### `DO` loop
 
 A general loop form with an optional body and optional `UNTIL` exit condition:
@@ -138,6 +214,38 @@ code-generation back-end with LLVM IR via `llvm::IRBuilder<>`, enabling:
 - Native code generation for any LLVM-supported target (x86-64, AArch64, …)
 - IR inspection for teaching purposes (`--emit-llvm`)
 
+### `/=` as the not-equal operator
+
+The UNH dialect uses `/=` as the primary not-equal operator (consistent with FORTRAN and
+Ada conventions). The original CERN report used `<>`; both are accepted and produce identical code:
+
+```
+IF X /= Y THEN ...       (* UNH form — preferred *)
+IF X <> Y THEN ...       (* CERN form — still accepted *)
+WHILE B /= 0 DO ...      (* typical use in loop conditions *)
+```
+
+### `=>` assignment operator
+
+The UNH dialect places the **value on the left** and the **target on the right**, separated by `=>`:
+
+```
+10        => B;           (* assign 10 to B          *)
+A + 9     => C;           (* assign expression to C  *)
+R0        => R1;          (* copy register R0 to R1  *)
+-1        => R0;          (* assign -1 to R0         *)
+A + B     => SUM;         (* computed value to SUM   *)
+```
+
+The traditional ALGOL `:=` form is fully supported alongside `=>`. Both forms produce identical code and may be mixed freely:
+
+```
+SUM := 0;          (* traditional form *)
+1   => I;          (* UNH form         *)
+```
+
+Assignment is always a statement; it cannot appear inside an expression. A single `=` denotes equality comparison only. `<=` and `>=` are relational operators and are not valid as assignment forms.
+
 ### `INTEGER` as a type alias for `WORD`
 
 The original report uses `INTEGER` only in informal descriptions; the implemented type keywords
@@ -165,16 +273,22 @@ pl11/
 │   ├── codegen/            LLVM IR emitter
 │   └── main.cpp            Driver
 └── tests/
-    ├── hello.pl11
-    ├── fibonacci.pl11
-    ├── gcd.pl11
-    ├── control_flow.pl11
-    ├── sort.pl11
-    ├── print_demo.pl11
-    ├── while_until.pl11    WHILE … UNTIL extension test (UNH)
-    ├── for_until.pl11      FOR  … UNTIL extension test (UNH)
-    ├── do_loop.pl11        DO loop extension test (UNH)
-    └── primes.pl11         First 1000 primes via trial division (system verification)
+    ├── hello.pl11           Minimal program: basic block, declarations, arithmetic
+    ├── fibonacci.pl11       Recursive function, WHILE loop, RETURN
+    ├── gcd.pl11             WHILE loop, arithmetic, procedure call
+    ├── control_flow.pl11    IF-THEN-ELSE, FOR, CASE, REPEAT-UNTIL, bitwise ops
+    ├── sort.pl11            Bubble sort; arrays, nested FOR loops, CONSTANT
+    ├── print_demo.pl11      All PRINT format specifiers (%d %l %f %c %s %%)
+    ├── while_until.pl11     WHILE … UNTIL extension (UNH)
+    ├── for_until.pl11       FOR  … UNTIL extension (UNH)
+    ├── do_loop.pl11         DO loop with and without UNTIL (UNH)
+    ├── primes.pl11          First 1000 primes via trial division
+    ├── comments.pl11        All three comment forms: (* *), %, COMMENT…; (UNH)
+    ├── array_decl.pl11      ARRAY size TYPE name declaration syntax (UNH)
+    ├── for_step.pl11        FOR … FROM … STEP loop syntax (UNH)
+    ├── for_nostart.pl11     FOR loop using variable's current value (UNH)
+    ├── neq_op.pl11          /= not-equal operator and <> synonym (UNH)
+    └── assign_op.pl11       => assignment operator alongside := (UNH)
 ```
 
 ---
@@ -248,6 +362,20 @@ Pass `--keep-ir` to retain `.ll` files, or `-v` for verbose output showing each 
 cd build-llvm
 ctest --output-on-failure
 ```
+
+CTest registers **five tests per source file** (80 tests total for 16 programs):
+
+| Test name | What it checks |
+|-----------|----------------|
+| `lex_<name>` | Lexer tokenises the file without errors |
+| `parse_<name>` | Parser builds a valid AST |
+| `sema_<name>` | Semantic analysis passes without errors |
+| `ir_<name>` | LLVM IR is emitted without errors |
+| `exec_<name>` | Program compiles, runs, and output matches `tests/<name>.expected` |
+
+The `exec_*` tests require LLVM (`llc`) and `clang` on `PATH`. Programs that produce no output
+(hello, gcd, control\_flow, sort) have no `.expected` file; the test simply checks the exit code
+is zero.
 
 ---
 

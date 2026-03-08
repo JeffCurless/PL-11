@@ -47,6 +47,7 @@ private:
     void                             parseDeclarationGroup(std::vector<ASTNodePtr>& out);
     ASTNodePtr                       parseDeclaration();  // returns first from group
     void                             parseVarDeclGroup(TypeSpec ts, std::vector<ASTNodePtr>& out);
+    void                             parseArrayDeclGroup(std::vector<ASTNodePtr>& out);
     ASTNodePtr                       parseConstDecl();
     ASTNodePtr                       parseProcDecl(TypeSpec retType = TypeSpec{});
     TypeSpec                         parseTypeSpec();
@@ -55,7 +56,8 @@ private:
     ParamMode                        parseParamMode();
 
     ASTNodePtr parseStatement();
-    ASTNodePtr parseAssignOrProcCall();  // handles identifier ambiguity
+    ASTNodePtr parseExprStmt();          // expression => lvalue  OR  lvalue := expression
+    ASTNodePtr parseLValue();            // parse assignment target for => form
     ASTNodePtr parseIfStmt();
     ASTNodePtr parseWhileStmt();
     ASTNodePtr parseForStmt();

@@ -23,6 +23,7 @@ enum class TokenKind {
 
     // Keywords
     TOK_AND,
+    TOK_ARRAY,
     TOK_ASM,
     TOK_BEGIN,
     TOK_BIT,
@@ -38,6 +39,7 @@ enum class TokenKind {
     TOK_FLOAT,
     TOK_FOR,
     TOK_FORWARD,
+    TOK_FROM,
     TOK_GOTO,
     TOK_IF,
     TOK_IN,
@@ -58,6 +60,7 @@ enum class TokenKind {
     TOK_SHR,
     TOK_SHRA,
     TOK_SP,
+    TOK_STEP,
     TOK_THEN,
     TOK_TO,
     TOK_UNTIL,
@@ -70,6 +73,7 @@ enum class TokenKind {
 
     // Operators
     TOK_ASSIGN,         // :=
+    TOK_ARROW,          // =>  (UNH: value => lvalue assignment)
     TOK_EQ,             // =
     TOK_NEQ,            // <>
     TOK_LT,             // <
@@ -156,7 +160,10 @@ private:
     char peek1() const;
     void advance();
     void skipWhitespace();
-    void skipComment();
+    void skipComment();           // (* ... *)
+    void skipLineComment();       // % ... <eol>
+    void skipCommentStatement();  // COMMENT ... ;
+    bool isCommentKeyword() const;
     SourceLoc makeLoc() const;
 
     Token readIdentifierOrKeyword();

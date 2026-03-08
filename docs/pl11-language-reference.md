@@ -84,16 +84,50 @@ Statements are separated by semicolons (`;`). The last statement before `END` do
 
 ### 2.3 Comments
 
-Comments begin with `(*` and end with `*)` and may span multiple lines:
+PL-11 supports three comment forms. All are stripped before parsing and produce no tokens.
+
+#### Block comments — `(* … *)`
+
+Begin with `(*` and end with `*)`. May span multiple lines and may be nested:
 
 ```
 (* This is a comment *)
 
 (*
-   Multi-line comment
-   explaining the next section
+   Multi-line comment.
+   (* Nested block comments are allowed. *)
 *)
 ```
+
+#### Line comments — `%`
+
+A `%` character that is not inside a string literal starts a comment that extends to the end of the line:
+
+```
+WORD COUNT;      % number of items processed
+I := I + 1;      % advance to next element
+```
+
+The `%` sign inside a quoted string is treated literally and does not start a comment:
+
+```
+PRINT('100%% complete\n')   % the %% in the string is not a comment
+```
+
+#### Keyword comments — `COMMENT … ;`
+
+The word `COMMENT` (case-insensitive) starts a comment that extends to the next semicolon. This form may span multiple lines:
+
+```
+COMMENT Set up initial values for the main loop;
+
+COMMENT
+    This block initialises the hardware interface.
+    It must be called once before entering the event loop.
+;
+```
+
+The terminating `;` is consumed as part of the comment and does not act as a statement separator.
 
 ### 2.4 Minimal Program
 
@@ -130,7 +164,7 @@ PL-11 provides three named integer types, each corresponding to a specific PDP-1
 | `WORD`   | 16 bits | -32768 to 32767                    |
 | `LONG`   | 32 bits | -2,147,483,648 to 2,147,483,647    |
 
-`WORD` is the native PDP-11 integer size and the most common type. `WORD` is accepted as an alias for `WORD` for compatibility.
+`WORD` is the native PDP-11 integer size and the most common type. `INTEGER` is accepted as an alias for `WORD` for readability.
 
 ```
 WORD  I, J, K;
@@ -224,17 +258,47 @@ BIT*16  STATUS;
 
 ### 4.2 Array Declarations
 
-Arrays are declared by appending a size in parentheses to the variable name:
+PL-11 supports two syntaxes for declaring arrays. Both are equivalent and may be freely mixed in the same program.
+
+#### Traditional syntax — `type name(size)`
+
+Dimensions are given in parentheses after the variable name:
 
 ```
-WORD SCORES(50);         (* array of 50 integers, indexed 1..50 *)
-REAL    MATRIX(10, 10);     (* 10x10 array of reals *)
+WORD SCORES(50);            (* array of 50 integers, indexed 1..50 *)
+REAL MATRIX(10, 10);        (* 10×10 array of reals *)
 CHARACTER*8 NAMES(25);      (* 25 strings of length 8 *)
 ```
 
+#### ARRAY syntax — `ARRAY size type name`
+
+An alternative form places the size before the type and name. This reads naturally as "an array of N elements of type T":
+
+```
+ARRAY 50   WORD    SCORES;         (* same as WORD SCORES(50) *)
+ARRAY 3, 4 REAL    MATRIX;         (* same as REAL MATRIX(3, 4) *)
+ARRAY 512  BYTE    BUFFER;         (* 512-byte I/O buffer *)
+```
+
+For multi-dimensional arrays, comma-separate the dimensions:
+
+```
+ARRAY 10, 10 WORD TABLE;           (* 10×10 table *)
+```
+
+Multiple names sharing the same size and type can be declared on one line:
+
+```
+ARRAY 4 WORD ROW, COL;             (* two separate arrays of 4 words each *)
+```
+
+#### Indexing
+
 Array indexing uses parentheses: `SCORES(1)`, `MATRIX(I, J)`.
 
-By default, PL-11 arrays are **1-based** (first element has index 1).
+All PL-11 arrays are **1-based**: the first element has index 1, the last has index equal to the declared size.
+
+Multi-dimensional arrays are stored in row-major order and indexed with comma-separated subscripts: `MATRIX(I, J)`. Internally the layout is flat — `MATRIX(I, J)` is equivalent to element `(I-1)*cols + J`.
 
 ### 4.3 Constants
 
@@ -275,11 +339,14 @@ Relational operators produce a boolean result used in conditions. PL-11 has no s
 | Operator | Meaning                  |
 |----------|--------------------------|
 | `=`      | Equal                    |
-| `<>`     | Not equal                |
+| `/=`     | Not equal                |
+| `<>`     | Not equal (synonym for `/=`) |
 | `<`      | Less than                |
 | `>`      | Greater than             |
 | `<=`     | Less than or equal       |
 | `>=`     | Greater than or equal    |
+
+`/=` is the canonical not-equal operator in the UNH dialect; `<>` is retained as a synonym for compatibility. Both produce identical code.
 
 ### 5.3 Logical and Bitwise Operators
 
@@ -297,15 +364,30 @@ These operators work on `BIT` operands at the bit level, and on integer conditio
 
 Shift amounts are given as: `FLAGS SHL 3`.
 
-### 5.4 Assignment Operator
+### 5.4 Assignment Operators
 
-The assignment operator is `:=` (colon-equals, from ALGOL-60):
+PL-11 supports two assignment forms. Both are **statements** — assignment cannot appear nested inside an expression.
+
+#### `=>` — UNH form (value on left, target on right)
+
+```
+10        => X;          (* assign 10 to X              *)
+A + B     => SUM;        (* assign sum to SUM           *)
+3.14159   => PI;         (* assign real literal to PI   *)
+-1        => R0;         (* assign -1 to register R0    *)
+R0        => R1;         (* copy register R0 to R1      *)
+100       => VALS(1);    (* assign to array element     *)
+```
+
+The value expression (left of `=>`) may be any expression. The target (right of `=>`) must be a variable, array element, or register name — not an arbitrary expression.
+
+#### `:=` — Traditional form (target on left, value on right)
 
 ```
 X := Y + Z * 2;
 ```
 
-Assignment is a **statement**, not an expression. It cannot appear nested inside an expression.
+The traditional ALGOL-60 form is fully supported alongside `=>`. Both forms produce identical code; either may be used freely within the same program.
 
 ### 5.5 Operator Precedence
 
@@ -385,45 +467,80 @@ UNTIL A(I) = KEY
 
 ### 6.3 FOR
 
+PL-11 supports two equivalent syntaxes for the FOR loop header.
+
+#### Traditional syntax
+
 ```
-FOR variable := start TO end DO statement
-FOR variable := start DOWNTO end DO statement
-FOR variable := start TO end DO statement UNTIL break_condition
-FOR variable := start DOWNTO end DO statement UNTIL break_condition
+FOR variable := start TO     end DO statement [ UNTIL break_condition ]
+FOR variable := start DOWNTO end DO statement [ UNTIL break_condition ]
 ```
 
-`TO` increments by 1 each iteration; `DOWNTO` decrements by 1. The loop variable must be a `WORD`. The loop body executes from `start` to `end` inclusive. If `start > end` for `TO` (or `start < end` for `DOWNTO`), the body is never executed.
+#### UNH syntax — `FROM`, optional `STEP`, optional start
 
-The optional `UNTIL` clause is evaluated **after** the body and **before** the increment step. If `break_condition` is non-zero, the loop exits without incrementing — useful for early exit on a found condition.
+The UNH extensions add two new keywords and make the start-value assignment optional:
 
-Control flow with UNTIL:
 ```
-→ for.cond:  if i > end → for.exit
+FOR variable FROM start [STEP step] TO     end DO statement [ UNTIL break_condition ]
+FOR variable FROM start [STEP step] DOWNTO end DO statement [ UNTIL break_condition ]
+FOR variable          [STEP step] TO     end DO statement [ UNTIL break_condition ]
+FOR variable          [STEP step] DOWNTO end DO statement [ UNTIL break_condition ]
+```
+
+**`FROM start`** — replaces `:=` as the separator between the loop variable and its initial value. When `FROM` (and `:=`) are both omitted, the loop begins at the variable's **current value** — no initialisation is performed.
+
+**`STEP step_expr`** — provides an explicit per-iteration increment. When omitted, the default is `+1` for `TO` and `−1` for `DOWNTO`. The step expression is evaluated once before the loop begins. It may be any arithmetic expression, including a negative literal.
+
+`TO`/`DOWNTO` control the **termination condition** (`i ≤ end` / `i ≥ end`) independently of the step sign.
+
+Control flow:
+```
+→ [store start → var]     ← only when a start value is given
+→ for.cond:  load var; if var > end (or var < end for DOWNTO) → for.exit
 → for.body:  [loop body]
-→ for.until: if break_cond → for.exit
+→ for.until: if break_cond → for.exit    ← only when UNTIL present
 →            else          → for.step
-→ for.step:  i ± 1  →  for.cond
+→ for.step:  var := var + step  →  for.cond
 → for.exit:
 ```
 
 Examples:
 
 ```
-(* Sum all elements *)
+(* Traditional := syntax — unchanged *)
 FOR I := 1 TO N DO
     SUM := SUM + A(I);
 
-(* Reverse multiply — no UNTIL *)
-FOR I := N DOWNTO 1 DO
-    A(I) := A(I) * 2
+(* FROM syntax — equivalent to above *)
+FOR I FROM 1 TO N DO
+    SUM := SUM + A(I);
 
-(* Linear search — exit as soon as element found *)
-FOR I := 1 TO N DO
-    LAST := A(I)
-UNTIL A(I) = KEY
+(* Count down by two: 10, 8, 6, 4, 2 *)
+FOR I FROM 10 STEP -2 DOWNTO 2 DO
+    PRINT('%d\n', I);
+
+(* No start: continue from current I, step up to 10 *)
+I := 3;
+FOR I TO 10 DO
+    SUM := SUM + I;   (* adds 3 + 4 + 5 + … + 10 *)
+
+(* No start, explicit negative step: count down from current I to 1 *)
+I := 5;
+FOR I STEP -1 DOWNTO 1 DO
+    PROCESS(I);       (* visits 5, 4, 3, 2, 1 *)
+
+(* No start + STEP + UNTIL: scan from current position until condition *)
+FOR I STEP 2 TO 100 DO
+    SUM := SUM + I
+UNTIL SUM > 50;
+
+(* Sum odd numbers with early exit *)
+FOR I FROM 1 STEP 2 TO 100 DO
+    SUM := SUM + I
+UNTIL SUM > 20;
 ```
 
-The loop variable must not be modified inside the loop body.
+The loop variable retains its exit value after the loop (useful with `UNTIL` to know which iteration triggered the exit). The loop variable must not be modified inside the loop body.
 
 ### 6.4 CASE
 
@@ -446,9 +563,7 @@ CASE CODE OF
 END
 ```
 
-### 6.5 REPEAT-UNTIL (optional extension)
-
-Some PL-11 implementations support:
+### 6.5 REPEAT-UNTIL
 
 ```
 REPEAT
@@ -456,7 +571,14 @@ REPEAT
 UNTIL condition
 ```
 
-This is a post-test loop: the body executes at least once, and repeats until `condition` is non-zero.
+A post-test loop: the body (which may contain multiple semicolon-separated statements) executes at least once, then repeats until `condition` is non-zero.
+
+```
+(* Read digits until a non-digit is found *)
+REPEAT
+    CH := GETCHAR;
+    DIGIT := CH - 48
+UNTIL CH < 48
 
 ### 6.6 DO
 
@@ -921,17 +1043,20 @@ PRINT('Big number: %l\n', BIG);
 ## Appendix A: Reserved Words
 
 ```
-AND         BEGIN       BIT         BYTE        CALL
-CASE        CHARACTER   CONSTANT    DO          DOWNTO
-ELSE        END         FOR         FORWARD     GOTO
-IF          IN          LONG        MOD         NOT
-OF          OR          OUT         PRINT       PROCEDURE
-REAL        REPEAT      RETURN      SHL         SHR
-SHRA        THEN        TO          UNTIL       WHILE
-WORD        XOR
+AND         ARRAY       ASM         BEGIN       BIT
+BYTE        CALL        CASE        CHARACTER   COMMENT
+CONSTANT    DO          DOWNTO      ELSE        END
+FLOAT       FOR         FORWARD     GOTO        IF
+IN          INTEGER     LONG        MOD         NOT
+OF          OR          OUT         PC          PRINT
+PROCEDURE   REAL        REPEAT      RETURN      SHL
+SHR         SHRA        SP          THEN        TO
+UNTIL       WHILE       WORD        XOR
 ```
 
-`WORD` is also accepted as a reserved alias for `WORD`.
+`INTEGER` and `FLOAT` are reserved aliases for `WORD` and `REAL` respectively.
+`SP` and `PC` are reserved aliases for the stack-pointer and program-counter registers.
+`COMMENT` is a reserved word that introduces a keyword comment (see §2.3); it is not available as an identifier.
 
 ## Appendix B: PDP-11 Register Names
 
@@ -963,6 +1088,7 @@ SP  PC
 | `OR`      | Logical    | 3          | Left       |
 | `XOR`     | Logical    | 3          | Left       |
 | `=`       | Relational | 4          | Left       |
+| `/=`      | Relational | 4          | Left       |
 | `<>`      | Relational | 4          | Left       |
 | `<`       | Relational | 4          | Left       |
 | `>`       | Relational | 4          | Left       |

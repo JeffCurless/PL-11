@@ -1,0 +1,40 @@
+% assign_op.pl11 — Verify that => and := are equivalent assignment operators.
+
+BEGIN
+    WORD A, B, SUM, I;
+    REAL PI;
+    WORD VALS(3);
+
+    COMMENT Basic scalar assignment with =>;
+    10  => A;
+    32  => B;
+    A + B => SUM;
+    PRINT('Sum: %d\n', SUM);           % expects 42
+
+    COMMENT Real assignment;
+    3.14159 => PI;
+    PRINT('Pi ~ %f\n', PI);            % expects 3.141590
+
+    COMMENT => in FOR loop body;
+    0 => SUM;
+    FOR I FROM 1 TO 5 DO
+        SUM + I => SUM;
+    PRINT('1..5 sum: %d\n', SUM);      % expects 15
+
+    COMMENT Mix: := for init, => inside loop body;
+    SUM := 0;
+    I   := 1;
+    WHILE I <= 5 DO
+        BEGIN
+            SUM + I => SUM;
+            I + 1   => I
+        END;
+    PRINT('While sum: %d\n', SUM);     % expects 15
+
+    COMMENT Array element assignment with =>;
+    100 => VALS(1);
+    200 => VALS(2);
+    300 => VALS(3);
+    PRINT('Array: %d %d %d\n', VALS(1), VALS(2), VALS(3))  % expects 100 200 300
+
+END

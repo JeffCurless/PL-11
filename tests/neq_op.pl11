@@ -1,0 +1,49 @@
+% neq_op.pl11 — Verify that /= and <> are equivalent not-equal operators.
+
+BEGIN
+    WORD X, Y, COUNT, A, B, T;
+
+    COMMENT /= used in IF condition;
+    X := 5;
+    Y := 3;
+    IF X /= Y THEN
+        PRINT('5 /= 3: true\n')
+    ELSE
+        PRINT('5 /= 3: false\n');
+
+    COMMENT /= used in WHILE condition (GCD via Euclidean algorithm);
+    A := 48;
+    B := 18;
+    WHILE B /= 0 DO
+        BEGIN
+            T := A MOD B;
+            A := B;
+            B := T
+        END;
+    PRINT('GCD(48,18) = %d\n', A);   % expects 6
+
+    COMMENT <> still works as before;
+    X := 7;
+    Y := 7;
+    IF X <> Y THEN
+        PRINT('7 <> 7: true\n')
+    ELSE
+        PRINT('7 <> 7: false\n');
+
+    COMMENT /= in WHILE: count down while X is non-zero;
+    X     := 5;
+    COUNT := 0;
+    WHILE X /= 0 DO
+        BEGIN
+            X     := X - 1;
+            COUNT := COUNT + 1
+        END;
+    PRINT('Count to zero: %d steps\n', COUNT);   % expects 5 (5,4,3,2,1 → 0)
+
+    COMMENT mix: both /= and <> in the same expression via separate conditions;
+    A := 3;
+    B := 7;
+    IF (A /= B) AND (A <> 0) THEN
+        PRINT('/= and <> together: ok\n')
+
+END

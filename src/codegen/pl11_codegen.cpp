@@ -342,15 +342,29 @@ void Codegen::genStmt(ASTNode& node) {
         builder_.SetInsertPoint(exitBB);
 
     } else if (auto* fs = dynamic_cast<ForStmtNode*>(&node)) {
-        // FOR i := start TO end DO body
+        // FOR i := start TO/DOWNTO end DO body
+        // FOR i FROM start [STEP expr] TO/DOWNTO end DO body
         CodegenSymbol* sym = lookupSymbol(fs->loopVar);
         if (!sym) throw CodegenError("Undefined loop variable: " + fs->loopVar);
 
-        llvm::Value* startVal = genExpr(*fs->start);
-        llvm::Value* endVal   = genExpr(*fs->end);
+        llvm::Type*  iType  = sym->alloca->getAllocatedType();
+        llvm::Value* endVal = genExpr(*fs->end);
 
-        // Initialize loop variable
-        builder_.CreateStore(startVal, sym->alloca);
+        // Step: use explicit STEP expression, or default to ±1 from TO/DOWNTO direction
+        llvm::Value* stepVal;
+        if (fs->step) {
+            stepVal = genExpr(*fs->step);
+            stepVal = builder_.CreateIntCast(stepVal, iType, true, "step");
+        } else {
+            stepVal = llvm::ConstantInt::getSigned(iType, fs->downto ? -1 : 1);
+        }
+
+        // Initialise loop variable only when a start value was given.
+        // When omitted, the loop begins at whatever value the variable already holds.
+        if (fs->start) {
+            llvm::Value* startVal = genExpr(*fs->start);
+            builder_.CreateStore(startVal, sym->alloca);
+        }
 
         auto* condBB = llvm::BasicBlock::Create(ctx_, "for.cond", curFunc_);
         auto* bodyBB = llvm::BasicBlock::Create(ctx_, "for.body", curFunc_);
@@ -385,18 +399,15 @@ void Codegen::genStmt(ASTNode& node) {
             builder_.CreateCondBr(uc, exitBB, stepBB);
 
             builder_.SetInsertPoint(stepBB);
-            llvm::Value* stepVal = llvm::ConstantInt::get(cur->getType(), fs->downto ? -1 : 1);
             llvm::Value* next = builder_.CreateAdd(
-                builder_.CreateLoad(sym->alloca->getAllocatedType(), sym->alloca, "forvar"),
+                builder_.CreateLoad(iType, sym->alloca, "forvar"),
                 stepVal, "forstep");
             builder_.CreateStore(next, sym->alloca);
             builder_.CreateBr(condBB);
         } else {
-            // Increment/decrement
-            llvm::Value* step = llvm::ConstantInt::get(cur->getType(), fs->downto ? -1 : 1);
             llvm::Value* next = builder_.CreateAdd(
-                builder_.CreateLoad(sym->alloca->getAllocatedType(), sym->alloca, "forvar"),
-                step, "forstep");
+                builder_.CreateLoad(iType, sym->alloca, "forvar"),
+                stepVal, "forstep");
             builder_.CreateStore(next, sym->alloca);
             if (!builder_.GetInsertBlock()->getTerminator())
                 builder_.CreateBr(condBB);

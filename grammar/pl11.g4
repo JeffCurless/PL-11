@@ -39,9 +39,15 @@ stmtList
 
 declaration
     : varDecl
+    | arrayDecl
     | constDecl
     | procDecl
     | forwardDecl
+    ;
+
+// UNH alternative: ARRAY size[, size ...] type name[, name ...]
+arrayDecl
+    : ARRAY intLiteral (COMMA intLiteral)* typeSpec IDENTIFIER (COMMA IDENTIFIER)*
     ;
 
 varDecl
@@ -114,7 +120,8 @@ statement
     ;
 
 assignment
-    : variable ASSIGN_OP expression
+    : expression ARROW variable       // UNH form: value => target
+    | variable ASSIGN_OP expression   // traditional form: target := value
     ;
 
 ifStmt
@@ -126,8 +133,20 @@ whileStmt
     ;
 
 forStmt
-    : FOR IDENTIFIER ASSIGN_OP expression (TO | DOWNTO) expression
+    : FOR IDENTIFIER forInit (TO | DOWNTO) expression
       DO statement (UNTIL expression)?
+    ;
+
+// Four header forms for the loop variable initialiser:
+//   FOR i := start            — traditional assignment
+//   FOR i FROM start [STEP n] — UNH explicit start with optional step
+//   FOR i STEP n              — UNH no init, explicit step (use current value)
+//   FOR i                     — UNH no init, default step ±1 (use current value)
+forInit
+    : ASSIGN_OP expression                           // FOR i := start
+    | FROM expression (STEP expression)?             // FOR i FROM start [STEP n]
+    | STEP expression                                // FOR i STEP n  (current value)
+    |                                                // FOR i         (current value, default step)
     ;
 
 doStmt
@@ -228,7 +247,7 @@ indexList
 // ---- Operators ----
 
 relOp
-    : EQ | NEQ | LT | GT | LEQ | GEQ
+    : EQ | NEQ | NEQ_ALT | LT | GT | LEQ | GEQ
     ;
 
 addOp
@@ -308,15 +327,20 @@ MOD         : 'MOD' ;
 SHL         : 'SHL' ;
 SHR         : 'SHR' ;
 SHRA        : 'SHRA' ;
+ARRAY       : 'ARRAY' ;
+FROM        : 'FROM' ;
+STEP        : 'STEP' ;
 SP          : 'SP' ;
 PC          : 'PC' ;
 PRINT       : 'PRINT' ;
 
 // Operators and punctuation
 ASSIGN_OP   : ':=' ;
+ARROW       : '=>' ;   // UNH: value => lvalue assignment
 ASSIGN      : '=' ;
 EQ          : '=' ;
-NEQ         : '<>' ;
+NEQ         : '<>' ;   // CERN form — synonym for /=
+NEQ_ALT     : '/=' ;   // UNH form — preferred not-equal operator
 LEQ         : '<=' ;
 GEQ         : '>=' ;
 LT          : '<' ;
@@ -377,10 +401,24 @@ IDENTIFIER
     : [A-Za-z] [A-Za-z0-9_]*
     ;
 
-// Comments: (* ... *) — ANTLR does not natively support nested comments;
-// for production use, implement a custom lexer action for nesting.
-COMMENT
+// Comments — three forms, all skipped:
+//   (* ... *)    Block comment. ANTLR does not natively support nesting;
+//                for production use, implement a custom lexer action.
+BLOCK_COMMENT
     : '(*' .*? '*)' -> skip
+    ;
+
+//   % ...        Line comment — extends to end of line.
+//                (% inside a STRING_LITERAL is not a comment; that case
+//                 must be handled before this rule fires.)
+LINE_COMMENT
+    : '%' ~[\r\n]* -> skip
+    ;
+
+//   COMMENT ... ; Keyword comment — extends to next semicolon.
+//                ANTLR rule: match the word COMMENT then consume to ';'.
+KEYWORD_COMMENT
+    : 'COMMENT' .*? ';' -> skip
     ;
 
 // Whitespace

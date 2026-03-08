@@ -178,10 +178,19 @@ void Sema::analyseStmt(ASTNode& node) {
         Symbol* sym = lookup(fs->loopVar, fs->loc);
         if (sym->type.base != BaseType::INTEGER)
             throw typeError("FOR loop variable must be INTEGER", fs->loc);
-        TypeSpec st = analyseExpr(*fs->start);
+        if (fs->start) {
+            TypeSpec st = analyseExpr(*fs->start);
+            if (!isArithmetic(st))
+                throw typeError("FOR loop start value must be arithmetic", fs->loc);
+        }
         TypeSpec et = analyseExpr(*fs->end);
-        if (!isArithmetic(st) || !isArithmetic(et))
-            throw typeError("FOR loop bounds must be arithmetic", fs->loc);
+        if (!isArithmetic(et))
+            throw typeError("FOR loop end value must be arithmetic", fs->loc);
+        if (fs->step) {
+            TypeSpec stepT = analyseExpr(*fs->step);
+            if (!isArithmetic(stepT))
+                throw typeError("FOR STEP value must be arithmetic", fs->loc);
+        }
         analyseStmt(*fs->body);
         if (fs->untilCond) analyseExpr(*fs->untilCond);
     } else if (auto* ds = dynamic_cast<DoStmtNode*>(&node)) {

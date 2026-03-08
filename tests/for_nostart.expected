@@ -1,0 +1,6 @@
+TO no-start (3..7):        25
+DOWNTO no-start (5..1):    15
+STEP 3 no-start (2..11):   26
+STEP -2 no-start (10..2):  30
+No-start UNTIL SUM>10:     15
+Loop var after UNTIL:       5

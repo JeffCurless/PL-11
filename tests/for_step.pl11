@@ -1,0 +1,49 @@
+% for_step.pl11 — Test the UNH FROM / STEP FOR loop syntax
+
+BEGIN
+    WORD I, SUM;
+
+    COMMENT Traditional := syntax still works;
+    SUM := 0;
+    FOR I := 1 TO 5 DO
+        SUM := SUM + I;
+    PRINT('Traditional TO:   %d\n', SUM);     % expects 15
+
+    COMMENT FROM without STEP (default step = +1);
+    SUM := 0;
+    FOR I FROM 1 TO 5 DO
+        SUM := SUM + I;
+    PRINT('FROM TO:          %d\n', SUM);      % expects 15
+
+    COMMENT FROM without STEP, DOWNTO (default step = -1);
+    SUM := 0;
+    FOR I FROM 5 DOWNTO 1 DO
+        SUM := SUM + I;
+    PRINT('FROM DOWNTO:      %d\n', SUM);      % expects 15
+
+    COMMENT FROM with explicit STEP +2 — sum of odd numbers 1 3 5 7 9;
+    SUM := 0;
+    FOR I FROM 1 STEP 2 TO 9 DO
+        SUM := SUM + I;
+    PRINT('FROM STEP 2 TO:   %d\n', SUM);      % expects 25
+
+    COMMENT FROM with explicit STEP -1 DOWNTO;
+    SUM := 0;
+    FOR I FROM 5 STEP -1 DOWNTO 1 DO
+        SUM := SUM + I;
+    PRINT('FROM STEP -1 DOWNTO: %d\n', SUM);  % expects 15
+
+    COMMENT FROM STEP -2 counting down by twos: 10 8 6 4 2;
+    SUM := 0;
+    FOR I FROM 10 STEP -2 DOWNTO 2 DO
+        SUM := SUM + I;
+    PRINT('FROM STEP -2 DOWNTO: %d\n', SUM);  % expects 30
+
+    COMMENT FROM STEP with UNTIL early exit: sum until > 20;
+    SUM := 0;
+    FOR I FROM 1 STEP 3 TO 100 DO
+        SUM := SUM + I
+    UNTIL SUM > 20;
+    PRINT('FROM STEP UNTIL:  %d\n', SUM)       % expects 22 (1+4+7+10 = 22 > 20)
+
+END

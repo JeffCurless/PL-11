@@ -30,6 +30,7 @@ stmt_list       ::= { statement ';' } [ statement ] .
 (* ============================================================ *)
 
 declaration     ::= var_decl
+                  | array_decl
                   | const_decl
                   | proc_decl
                   | forward_decl .
@@ -37,6 +38,10 @@ declaration     ::= var_decl
 var_decl        ::= type_spec var_declarator { ',' var_declarator } .
 
 var_declarator  ::= identifier [ '(' dim_list ')' ] .
+
+(* UNH alternative array declaration: ARRAY size[, size ...] type name[, name ...] *)
+array_decl      ::= 'ARRAY' integer_literal { ',' integer_literal }
+                    type_spec identifier { ',' identifier } .
 
 dim_list        ::= expression { ',' expression } .
 
@@ -84,16 +89,27 @@ statement       ::= assignment
                   | print_stmt
                   | block .
 
-assignment      ::= variable ':=' expression .
+assignment      ::= expression '=>' variable      (* UNH form: value => target *)
+                  | variable ':=' expression .    (* traditional form: target := value *)
 
 if_stmt         ::= 'IF' expression 'THEN' statement
                     [ 'ELSE' statement ] .
 
 while_stmt      ::= 'WHILE' expression 'DO' statement [ 'UNTIL' expression ] .
 
-for_stmt        ::= 'FOR' identifier ':=' expression
+for_stmt        ::= 'FOR' identifier for_init
                     ( 'TO' | 'DOWNTO' ) expression
                     'DO' statement [ 'UNTIL' expression ] .
+
+(* for_init controls how (and whether) the loop variable is initialised:
+     ':=' form  — traditional assignment
+     'FROM' form — UNH; explicit start value with optional step
+     step-only   — UNH; no initialisation, loop begins at variable's current value
+     empty       — UNH; no initialisation, default step ±1 *)
+for_init        ::= ':=' expression                                 (* traditional *)
+                  | 'FROM' expression [ 'STEP' expression ]         (* UNH with start *)
+                  | 'STEP' expression                               (* UNH: current value, explicit step *)
+                  | (* empty — current value, default step *) .
 
 do_stmt         ::= 'DO' ( ';' | statement ) [ 'UNTIL' expression ] .
 
@@ -174,7 +190,8 @@ index_list      ::= expression { ',' expression } .
 (* Operators                                                   *)
 (* ============================================================ *)
 
-rel_op          ::= '=' | '<>' | '<' | '>' | '<=' | '>=' .
+rel_op          ::= '=' | '/=' | '<>' | '<' | '>' | '<=' | '>=' .
+                    (* '/=' and '<>' are synonymous not-equal operators *)
 
 add_op          ::= '+' | '-' | 'OR' | 'XOR' .
 
@@ -239,8 +256,27 @@ hex_digit       ::= digit | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
                           | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' .
 
 (* ============================================================ *)
+(* Reserved Words                                              *)
+(* (Updated set — all keywords including UNH extensions)       *)
+(* ============================================================ *)
+(*
+   AND   ARRAY   ASM    BEGIN   BIT     BYTE    CALL    CASE
+   CHARACTER     COMMENT        CONSTANT        DO      DOWNTO
+   ELSE  END     FLOAT   FOR    FORWARD  FROM   GOTO   IF
+   IN    INTEGER  LONG   MOD    NOT     OF      OR      OUT
+   PC    PRINT   PROCEDURE      REAL    REPEAT  RETURN  SHL
+   SHR   SHRA   SP     STEP    THEN    TO      UNTIL   WHILE   WORD  XOR
+
+   INTEGER is an alias for WORD; FLOAT is an alias for REAL.
+   SP and PC are reserved register aliases.
+   COMMENT is a reserved word that introduces a keyword comment.
+*)
+
+(* ============================================================ *)
 (* Comments (not captured in grammar — handled by lexer)       *)
 (* ============================================================ *)
-(*   Comments: (* ... *) — may be nested                        *)
-(*   Keywords are case-insensitive.                             *)
-(*   Identifiers are case-insensitive.                          *)
+(*   Form 1: (* ... *)  — block comment; may be nested          *)
+(*   Form 2: % ...      — line comment; extends to end of line  *)
+(*           (% inside a string literal is not a comment)       *)
+(*   Form 3: COMMENT ... ; — keyword comment; extends to next ; *)
+(*   Keywords and identifiers are case-insensitive.             *)
