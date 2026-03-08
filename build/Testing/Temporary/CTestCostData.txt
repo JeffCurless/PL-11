@@ -1,4 +1,0 @@
-lex_hello 3 0.00109519
-parse_hello 2 0.00193199
-sema_hello 2 0.00194457
----
