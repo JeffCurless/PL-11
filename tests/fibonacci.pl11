@@ -8,6 +8,7 @@ BEGIN
     END;
 
     WORD RESULT;
-    RESULT := FIB(10)
+    RESULT := FIB(20)
+    PRINT( 'RESULT = %d\n', RESULT)
     (* RESULT = 55 *)
 END
