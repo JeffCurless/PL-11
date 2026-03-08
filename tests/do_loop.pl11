@@ -2,19 +2,19 @@ BEGIN
     INTEGER I;
     INTEGER SUM;
 
-    (* Test 1: DO ; UNTIL — empty body; condition is already true, exits at once *)
-    I := 5;
+    % Test 1: DO ; UNTIL — empty body; condition is already true, exits at once
+    5 => I;
     DO ;
     UNTIL I = 5;
     PRINT('%d\n', I);
 
-    (* Test 2: DO stmt UNTIL — body runs at least once, accumulates 1+2+3+4+5 = 15 *)
-    I := 1;
-    SUM := 0;
+    % Test 2: DO stmt UNTIL — body runs at least once, accumulates 1+2+3+4+5 = 15
+    1 => I;
+    0 => SUM;
     DO
         BEGIN
-            SUM := SUM + I;
-            I := I + 1
+            SUM + I => SUM;
+            I + 1   => I
         END
     UNTIL I > 5;
     PRINT('%d\n', SUM)

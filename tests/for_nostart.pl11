@@ -12,38 +12,38 @@ BEGIN
     WORD I, SUM;
 
     COMMENT TO with no start: count up from 3 to 7, sum = 3+4+5+6+7 = 25;
-    I   := 3;
-    SUM := 0;
+    3 => I;
+    0 => SUM;
     FOR I TO 7 DO
-        SUM := SUM + I;
+        SUM + I => SUM;
     PRINT('TO no-start (3..7):        %d\n', SUM);    % expects 25
 
     COMMENT DOWNTO with no start: count down from 5 to 1, sum = 5+4+3+2+1 = 15;
-    I   := 5;
-    SUM := 0;
+    5 => I;
+    0 => SUM;
     FOR I DOWNTO 1 DO
-        SUM := SUM + I;
+        SUM + I => SUM;
     PRINT('DOWNTO no-start (5..1):    %d\n', SUM);    % expects 15
 
     COMMENT STEP 3 TO with no start: 2 5 8 11 = 26;
-    I   := 2;
-    SUM := 0;
+    2  => I;
+    0  => SUM;
     FOR I STEP 3 TO 11 DO
-        SUM := SUM + I;
+        SUM + I => SUM;
     PRINT('STEP 3 no-start (2..11):   %d\n', SUM);    % expects 26
 
     COMMENT STEP -2 DOWNTO with no start: 10 8 6 4 2 = 30;
-    I   := 10;
-    SUM := 0;
+    10 => I;
+    0  => SUM;
     FOR I STEP -2 DOWNTO 2 DO
-        SUM := SUM + I;
+        SUM + I => SUM;
     PRINT('STEP -2 no-start (10..2):  %d\n', SUM);    % expects 30
 
     COMMENT No-start with UNTIL: sum from current I=1 upwards, stop when SUM > 10;
-    I   := 1;
-    SUM := 0;
+    1 => I;
+    0 => SUM;
     FOR I TO 100 DO
-        SUM := SUM + I
+        SUM + I => SUM
     UNTIL SUM > 10;
     PRINT('No-start UNTIL SUM>10:     %d\n', SUM);    % expects 15 (1+2+3+4+5)
 

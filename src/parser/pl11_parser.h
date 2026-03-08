@@ -47,7 +47,6 @@ private:
     void                             parseDeclarationGroup(std::vector<ASTNodePtr>& out);
     ASTNodePtr                       parseDeclaration();  // returns first from group
     void                             parseVarDeclGroup(TypeSpec ts, std::vector<ASTNodePtr>& out);
-    void                             parseArrayDeclGroup(std::vector<ASTNodePtr>& out);
     ASTNodePtr                       parseConstDecl();
     ASTNodePtr                       parseProcDecl(TypeSpec retType = TypeSpec{});
     TypeSpec                         parseTypeSpec();

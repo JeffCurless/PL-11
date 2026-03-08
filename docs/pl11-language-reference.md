@@ -84,20 +84,7 @@ Statements are separated by semicolons (`;`). The last statement before `END` do
 
 ### 2.3 Comments
 
-PL-11 supports three comment forms. All are stripped before parsing and produce no tokens.
-
-#### Block comments — `(* … *)`
-
-Begin with `(*` and end with `*)`. May span multiple lines and may be nested:
-
-```
-(* This is a comment *)
-
-(*
-   Multi-line comment.
-   (* Nested block comments are allowed. *)
-*)
-```
+PL-11 supports two comment forms. All are stripped before parsing and produce no tokens.
 
 #### Line comments — `%`
 
@@ -105,7 +92,7 @@ A `%` character that is not inside a string literal starts a comment that extend
 
 ```
 WORD COUNT;      % number of items processed
-I := I + 1;      % advance to next element
+I + 1 => I;      % advance to next element
 ```
 
 The `%` sign inside a quoted string is treated literally and does not start a comment:
@@ -133,7 +120,7 @@ The terminating `;` is consumed as part of the comment and does not act as a sta
 
 ```
 BEGIN
-    (* Minimal PL-11 program — does nothing *)
+    % Minimal PL-11 program — does nothing
 END
 ```
 
@@ -142,9 +129,9 @@ END
 ```
 BEGIN
     WORD X, Y, SUM;
-    X := 10;
-    Y := 32;
-    SUM := X + Y
+    10    => X;
+    32    => Y;
+    X + Y => SUM
 END
 ```
 
@@ -180,7 +167,7 @@ Integer literals are written as decimal numerals (`0`, `42`, `-7`) or as octal w
 
 ```
 REAL X, Y;
-REAL*8 DPREC;    (* double precision *)
+REAL*8 DPREC;    % double precision
 ```
 
 Real literals use a decimal point and optional exponent: `3.14`, `2.0E-3`, `-1.5E10`.
@@ -210,8 +197,8 @@ BIT*8  MASK;
 Bit literals use single-quoted strings of `0` and `1` characters, or hexadecimal with a leading `#`:
 
 ```
-FLAGS := '1010000000000011'B;    (* binary literal *)
-MASK  := #FF;                    (* hex literal *)
+'1010000000000011'B => FLAGS;    % binary literal
+#FF                 => MASK;     % hex literal
 ```
 
 Bitwise operations (`AND`, `OR`, `NOT`, `XOR`) and shift operations (`SHL`, `SHR`) apply to `BIT` operands.
@@ -221,18 +208,18 @@ Bitwise operations (`AND`, `OR`, `NOT`, `XOR`) and shift operations (`SHL`, `SHR
 PL-11 allows declaring variables as **addresses** (pointers) to other values. The address of a variable can be taken, and addresses can be dereferenced:
 
 ```
-WORD ARRAY(100);     (* array of 100 integers *)
-WORD   PTR;            (* can hold an address *)
+WORD 100 ARRAY BUF;        % array of 100 integers
+WORD PTR;                  % can hold an address
 
-PTR := @ARRAY;            (* @ takes address of ARRAY *)
-PTR^ := 42;               (* ^ dereferences PTR *)
+@BUF => PTR;               % @ takes address of BUF
+42   => PTR^;              % ^ dereferences PTR
 ```
 
 Direct numeric addresses can be assigned to pointer variables for memory-mapped I/O:
 
 ```
 WORD STATUSREG;
-STATUSREG := 177560B;     (* PDP-11 octal address of console status *)
+177560B => STATUSREG;     % PDP-11 octal address of console status
 ```
 
 ---
@@ -260,36 +247,36 @@ BIT*16  STATUS;
 
 PL-11 supports two syntaxes for declaring arrays. Both are equivalent and may be freely mixed in the same program.
 
-#### Traditional syntax — `type name(size)`
+#### UNH syntax — `type size ARRAY name`
 
-Dimensions are given in parentheses after the variable name:
-
-```
-WORD SCORES(50);            (* array of 50 integers, indexed 1..50 *)
-REAL MATRIX(10, 10);        (* 10×10 array of reals *)
-CHARACTER*8 NAMES(25);      (* 25 strings of length 8 *)
-```
-
-#### ARRAY syntax — `ARRAY size type name`
-
-An alternative form places the size before the type and name. This reads naturally as "an array of N elements of type T":
+The preferred form places the element count after the type and before the `ARRAY` keyword:
 
 ```
-ARRAY 50   WORD    SCORES;         (* same as WORD SCORES(50) *)
-ARRAY 3, 4 REAL    MATRIX;         (* same as REAL MATRIX(3, 4) *)
-ARRAY 512  BYTE    BUFFER;         (* 512-byte I/O buffer *)
+WORD 50  ARRAY SCORES;            % array of 50 integers, indexed 1..50
+WORD 3,4 ARRAY MATRIX;            % 3×4 array of words, stored flat
+BYTE 512 ARRAY BUFFER;            % 512-byte I/O buffer
 ```
 
-For multi-dimensional arrays, comma-separate the dimensions:
+For multi-dimensional arrays, comma-separate the dimensions before `ARRAY`:
 
 ```
-ARRAY 10, 10 WORD TABLE;           (* 10×10 table *)
+WORD 10, 10 ARRAY TABLE;          % 10×10 table
 ```
 
 Multiple names sharing the same size and type can be declared on one line:
 
 ```
-ARRAY 4 WORD ROW, COL;             (* two separate arrays of 4 words each *)
+WORD 4 ARRAY ROW, COL;            % two separate arrays of 4 words each
+```
+
+#### Traditional syntax — `type name(size)`
+
+The original form places dimensions in parentheses after the variable name:
+
+```
+WORD SCORES(50);                  % same as WORD 50 ARRAY SCORES
+WORD MATRIX(3, 4);                % same as WORD 3, 4 ARRAY MATRIX
+CHARACTER*8 NAMES(25);            % 25 strings of length 8
 ```
 
 #### Indexing
@@ -298,7 +285,7 @@ Array indexing uses parentheses: `SCORES(1)`, `MATRIX(I, J)`.
 
 All PL-11 arrays are **1-based**: the first element has index 1, the last has index equal to the declared size.
 
-Multi-dimensional arrays are stored in row-major order and indexed with comma-separated subscripts: `MATRIX(I, J)`. Internally the layout is flat — `MATRIX(I, J)` is equivalent to element `(I-1)*cols + J`.
+Multi-dimensional arrays are stored in row-major order and indexed with comma-separated subscripts: `MATRIX(I, J)`. Internally the layout is flat — `MATRIX(I, J)` is element `(I-1)*cols + J`.
 
 ### 4.3 Constants
 
@@ -340,13 +327,12 @@ Relational operators produce a boolean result used in conditions. PL-11 has no s
 |----------|--------------------------|
 | `=`      | Equal                    |
 | `/=`     | Not equal                |
-| `<>`     | Not equal (synonym for `/=`) |
 | `<`      | Less than                |
 | `>`      | Greater than             |
 | `<=`     | Less than or equal       |
 | `>=`     | Greater than or equal    |
 
-`/=` is the canonical not-equal operator in the UNH dialect; `<>` is retained as a synonym for compatibility. Both produce identical code.
+`/=` is the not-equal operator, consistent with FORTRAN and Ada conventions.
 
 ### 5.3 Logical and Bitwise Operators
 
@@ -364,30 +350,20 @@ These operators work on `BIT` operands at the bit level, and on integer conditio
 
 Shift amounts are given as: `FLAGS SHL 3`.
 
-### 5.4 Assignment Operators
+### 5.4 Assignment
 
-PL-11 supports two assignment forms. Both are **statements** — assignment cannot appear nested inside an expression.
-
-#### `=>` — UNH form (value on left, target on right)
+Assignment is a **statement** — it cannot appear nested inside an expression. The value is on the left and the target is on the right, separated by `=>`:
 
 ```
-10        => X;          (* assign 10 to X              *)
-A + B     => SUM;        (* assign sum to SUM           *)
-3.14159   => PI;         (* assign real literal to PI   *)
--1        => R0;         (* assign -1 to register R0    *)
-R0        => R1;         (* copy register R0 to R1      *)
-100       => VALS(1);    (* assign to array element     *)
+10        => X;          % assign 10 to X
+A + B     => SUM;        % assign sum to SUM
+3.14159   => PI;         % assign real literal to PI
+-1        => R0;         % assign -1 to register R0
+R0        => R1;         % copy register R0 to R1
+100       => VALS(1);    % assign to array element
 ```
 
 The value expression (left of `=>`) may be any expression. The target (right of `=>`) must be a variable, array element, or register name — not an arbitrary expression.
-
-#### `:=` — Traditional form (target on left, value on right)
-
-```
-X := Y + Z * 2;
-```
-
-The traditional ALGOL-60 form is fully supported alongside `=>`. Both forms produce identical code; either may be used freely within the same program.
 
 ### 5.5 Operator Precedence
 
@@ -398,7 +374,7 @@ From highest (evaluated first) to lowest:
 | 1 (highest)| Unary `-`, `NOT`                   |
 | 2          | `*`, `/`, `MOD`, `AND`, `SHL`, `SHR`, `SHRA` |
 | 3          | `+`, `-`, `OR`, `XOR`             |
-| 4 (lowest) | `=`, `<>`, `<`, `>`, `<=`, `>=`  |
+| 4 (lowest) | `=`, `/=`, `<`, `>`, `<=`, `>=`   |
 
 Parentheses can override precedence: `(A + B) * C`.
 
@@ -418,11 +394,11 @@ The condition is any expression (zero = false, non-zero = true). The `ELSE` clau
 ```
 IF X > 0 THEN
     BEGIN
-        Y := X * 2;
-        Z := Y - 1
+        X * 2     => Y;
+        Y - 1     => Z
     END
 ELSE
-    Z := 0
+    0 => Z
 ```
 
 Dangling `ELSE` is resolved by associating `ELSE` with the nearest preceding `IF` (standard rule).
@@ -450,35 +426,24 @@ Control flow with UNTIL:
 Examples:
 
 ```
-(* Simple accumulator — no UNTIL *)
+% Simple accumulator — no UNTIL
 WHILE I <= N DO
     BEGIN
-        SUM := SUM + A(I);
-        I := I + 1
+        SUM + A(I) => SUM;
+        I + 1      => I
     END
 
-(* Search loop — exits when element found or end reached *)
+% Search loop — exits when element found or end reached
 WHILE I <= N DO
     BEGIN
-        I := I + 1
+        I + 1 => I
     END
 UNTIL A(I) = KEY
 ```
 
 ### 6.3 FOR
 
-PL-11 supports two equivalent syntaxes for the FOR loop header.
-
-#### Traditional syntax
-
-```
-FOR variable := start TO     end DO statement [ UNTIL break_condition ]
-FOR variable := start DOWNTO end DO statement [ UNTIL break_condition ]
-```
-
-#### UNH syntax — `FROM`, optional `STEP`, optional start
-
-The UNH extensions add two new keywords and make the start-value assignment optional:
+The FOR loop header has three forms. All may be freely mixed in the same program and combined with `UNTIL`.
 
 ```
 FOR variable FROM start [STEP step] TO     end DO statement [ UNTIL break_condition ]
@@ -487,7 +452,7 @@ FOR variable          [STEP step] TO     end DO statement [ UNTIL break_conditio
 FOR variable          [STEP step] DOWNTO end DO statement [ UNTIL break_condition ]
 ```
 
-**`FROM start`** — replaces `:=` as the separator between the loop variable and its initial value. When `FROM` (and `:=`) are both omitted, the loop begins at the variable's **current value** — no initialisation is performed.
+**`FROM start`** — introduces the initial value. When `FROM` is omitted, the loop begins at the variable's **current value** — no initialisation is performed.
 
 **`STEP step_expr`** — provides an explicit per-iteration increment. When omitted, the default is `+1` for `TO` and `−1` for `DOWNTO`. The step expression is evaluated once before the loop begins. It may be any arithmetic expression, including a negative literal.
 
@@ -500,43 +465,39 @@ Control flow:
 → for.body:  [loop body]
 → for.until: if break_cond → for.exit    ← only when UNTIL present
 →            else          → for.step
-→ for.step:  var := var + step  →  for.cond
+→ for.step:  var + step => var  →  for.cond
 → for.exit:
 ```
 
 Examples:
 
 ```
-(* Traditional := syntax — unchanged *)
-FOR I := 1 TO N DO
-    SUM := SUM + A(I);
-
-(* FROM syntax — equivalent to above *)
+% Sum elements 1..N
 FOR I FROM 1 TO N DO
-    SUM := SUM + A(I);
+    A(I) + SUM => SUM;
 
-(* Count down by two: 10, 8, 6, 4, 2 *)
+% Count down by two: 10, 8, 6, 4, 2
 FOR I FROM 10 STEP -2 DOWNTO 2 DO
     PRINT('%d\n', I);
 
-(* No start: continue from current I, step up to 10 *)
-I := 3;
+% No start: continue from current I, step up to 10
+3 => I;
 FOR I TO 10 DO
-    SUM := SUM + I;   (* adds 3 + 4 + 5 + … + 10 *)
+    I + SUM => SUM;    % adds 3 + 4 + 5 + … + 10
 
-(* No start, explicit negative step: count down from current I to 1 *)
-I := 5;
+% No start, explicit negative step: count down from current I to 1
+5 => I;
 FOR I STEP -1 DOWNTO 1 DO
-    PROCESS(I);       (* visits 5, 4, 3, 2, 1 *)
+    CALL PROCESS(I);   % visits 5, 4, 3, 2, 1
 
-(* No start + STEP + UNTIL: scan from current position until condition *)
+% No start + STEP + UNTIL: scan from current position until condition
 FOR I STEP 2 TO 100 DO
-    SUM := SUM + I
+    I + SUM => SUM
 UNTIL SUM > 50;
 
-(* Sum odd numbers with early exit *)
+% Sum odd numbers with early exit
 FOR I FROM 1 STEP 2 TO 100 DO
-    SUM := SUM + I
+    I + SUM => SUM
 UNTIL SUM > 20;
 ```
 
@@ -574,11 +535,12 @@ UNTIL condition
 A post-test loop: the body (which may contain multiple semicolon-separated statements) executes at least once, then repeats until `condition` is non-zero.
 
 ```
-(* Read digits until a non-digit is found *)
+% Read digits until a non-digit is found
 REPEAT
-    CH := GETCHAR;
-    DIGIT := CH - 48
+    GETCHAR    => CH;
+    CH - 48    => DIGIT
 UNTIL CH < 48
+```
 
 ### 6.6 DO
 
@@ -605,14 +567,14 @@ Without `UNTIL`, the back-edge is unconditional and no exit block exists.
 Examples:
 
 ```
-(* Infinite spin-wait — smallest possible loop *)
+% Infinite spin-wait — smallest possible loop
 DO ;
 
-(* Poll until a hardware flag is set *)
+% Poll until a hardware flag is set
 DO ;
 UNTIL STATUS^ AND '0000000010000000'B
 
-(* Read-process loop: body runs at least once *)
+% Read-process loop: body runs at least once
 DO
     BEGIN
         CALL READ_RECORD;
@@ -620,11 +582,11 @@ DO
     END
 UNTIL END_OF_FILE = 1
 
-(* Bounded retry with UNTIL — exit when done or limit reached *)
+% Bounded retry with UNTIL — exit when done or limit reached
 DO
     BEGIN
         CALL TRY_OPERATION;
-        RETRIES := RETRIES + 1
+        RETRIES + 1 => RETRIES
     END
 UNTIL DONE = 1
 ```
@@ -663,8 +625,8 @@ A procedure with no parameters:
 ```
 PROCEDURE INIT;
 BEGIN
-    COUNT := 0;
-    SUM   := 0
+    0 => COUNT;
+    0 => SUM
 END;
 ```
 
@@ -681,7 +643,7 @@ PL-11 supports three parameter passing modes, using ALGOL-68 / Ada-style mode an
 ```
 PROCEDURE ADD (IN WORD A, IN WORD B, OUT WORD RESULT);
 BEGIN
-    RESULT := A + B
+    A + B => RESULT
 END;
 ```
 
@@ -689,9 +651,9 @@ END;
 PROCEDURE SWAP (IN OUT WORD X, IN OUT WORD Y);
 BEGIN
     WORD TEMP;
-    TEMP := X;
-    X    := Y;
-    Y    := TEMP
+    X    => TEMP;
+    Y    => X;
+    TEMP => Y
 END;
 ```
 
@@ -721,7 +683,7 @@ END;
 Functions are called as expressions (without `CALL`):
 
 ```
-Z := MAX(X, Y) + 1;
+MAX(X, Y) + 1 => Z;
 ```
 
 ### 7.5 Recursion
@@ -746,14 +708,14 @@ PL-11's distinguishing feature is direct access to PDP-11 hardware.
 
 ### 8.1 Registers
 
-The PDP-11 has 16 registers named R0 through R15 (with R13=SP, R14=LR or FP, R15=PC on some configurations; conventionally R6=SP, R7=PC for the PDP-11).
+The PDP-11 has 8 general-purpose registers named R0 through R7. R6 is the stack pointer (SP) and R7 is the program counter (PC). This implementation also accepts R8–R15 as named registers for compatibility with extended addressing modes.
 
 PL-11 allows referencing registers by name in expressions and assignments:
 
 ```
-R0 := 42;          (* load 42 into register R0 *)
-X  := R1 + R2;     (* use register values in expressions *)
-R3 := @BUFFER;     (* load address of BUFFER into R3 *)
+42      => R0;     % load 42 into register R0
+R1 + R2 => X;      % use register values in expressions
+@BUFFER => R3;     % load address of BUFFER into R3
 ```
 
 Register variables are not allocated in memory; they refer directly to hardware registers. Using registers in high-level code is architecture-specific and produces a warning if the compiler targets a non-PDP-11 backend.
@@ -764,8 +726,8 @@ A numeric literal followed by `B` (for "address") denotes an absolute memory add
 
 ```
 WORD DEVSTATUS;
-DEVSTATUS := 177560B;        (* assign address 177560 octal to DEVSTATUS *)
-DEVSTATUS^ := 0;             (* write 0 to memory location 177560 octal *)
+177560B => DEVSTATUS;        % assign address 177560 octal to DEVSTATUS
+0       => DEVSTATUS^;       % write 0 to memory location 177560 octal
 ```
 
 This is the primary mechanism for memory-mapped I/O on the PDP-11.
@@ -789,8 +751,8 @@ The compiler ensures natural alignment (words on even addresses, etc.).
 For operations not expressible in PL-11, inline PDP-11 assembly is supported using `ASM`:
 
 ```
-ASM('MOV R0, R1');              (* single instruction *)
-ASM('CLR @#177560');            (* clear device register *)
+ASM('MOV R0, R1');              % single instruction
+ASM('CLR @#177560');            % clear device register
 ```
 
 Inline assembly bypasses all type checking. Variables can be referenced by name within inline assembly; the compiler ensures they are accessible.
@@ -800,23 +762,23 @@ Inline assembly bypasses all type checking. Variables can be referenced by name 
 PL-11 provides two built-in statements for direct stack manipulation, corresponding to the PDP-11 auto-decrement and auto-increment addressing modes.
 
 ```
-PUSH expression       (* pre-decrement SP, store value at new SP  *)
-POP  variable         (* load value from SP, post-increment SP     *)
+PUSH expression       % pre-decrement SP, store value at new SP
+POP  variable         % load value from SP, post-increment SP
 ```
 
 **`PUSH expr`** evaluates `expr`, decrements SP by 2, then stores the value at the address now in SP:
 
 ```
-PUSH A;              (* SP := SP - 2;  mem[SP] := A *)
-PUSH R0;             (* push register R0 onto the stack *)
-PUSH A + B * 2;      (* push any expression *)
+PUSH A;              % SP := SP - 2;  mem[SP] := A
+PUSH R0;             % push register R0 onto the stack
+PUSH A + B * 2;      % push any expression
 ```
 
 **`POP target`** loads the 16-bit word at SP into `target`, then increments SP by 2:
 
 ```
-POP A;               (* A := mem[SP];  SP := SP + 2 *)
-POP R1;              (* pop into register R1 *)
+POP A;               % A := mem[SP];  SP := SP + 2
+POP R1;              % pop into register R1
 ```
 
 PUSH and POP are LIFO — the last value pushed is the first value popped:
@@ -824,16 +786,16 @@ PUSH and POP are LIFO — the last value pushed is the first value popped:
 ```
 BEGIN
     WORD X, Y, TMP;
-    X := 10;
-    Y := 20;
+    10 => X;
+    20 => Y;
 
-    (* Swap X and Y via the stack *)
+    % Swap X and Y via the stack
     PUSH X;
     PUSH Y;
     POP X;
     POP Y;
 
-    (* Save and restore a register across a call *)
+    % Save and restore a register across a call
     PUSH R0;
     CALL COMPUTE;
     POP R0
@@ -852,14 +814,14 @@ PL-11 uses **lexical scoping**: a name refers to the declaration in the innermos
 
 ```
 BEGIN
-    WORD X;        (* outer X *)
-    X := 10;
+    WORD X;        % outer X
+    10 => X;
     BEGIN
-        WORD X;    (* inner X — shadows outer X *)
-        X := 20;      (* modifies inner X *)
-        (* outer X is still 10 here *)
+        WORD X;    % inner X — shadows outer X
+        20 => X;   % modifies inner X
+        % outer X is still 10 here
     END;
-    (* X is 10 here — inner X is gone *)
+    % X is 10 here — inner X is gone
 END
 ```
 
@@ -870,7 +832,7 @@ A procedure's name is visible in the block where it is declared (from the point 
 Mutually recursive procedures are not directly supported. A `FORWARD` declaration can be used:
 
 ```
-PROCEDURE FORWARD ODD;   (* declare ODD before its body *)
+PROCEDURE FORWARD ODD;   % declare ODD before its body
 
 WORD PROCEDURE EVEN (IN WORD N);
 BEGIN
@@ -902,16 +864,16 @@ BEGIN
     CONSTANT WORD N = 10;
     WORD A(N), SUM, I;
 
-    (* Initialize array *)
-    FOR I := 1 TO N DO
-        A(I) := I * I;
+    % Initialize array
+    FOR I FROM 1 TO N DO
+        I * I => A(I);
 
-    (* Compute sum *)
-    SUM := 0;
-    FOR I := 1 TO N DO
-        SUM := SUM + A(I)
+    % Compute sum
+    0 => SUM;
+    FOR I FROM 1 TO N DO
+        SUM + A(I) => SUM
 
-    (* SUM now contains 1 + 4 + 9 + ... + 100 = 385 *)
+    % SUM now contains 1 + 4 + 9 + ... + 100 = 385
 END
 ```
 
@@ -924,17 +886,17 @@ BEGIN
 
     PROCEDURE SORT;
     BEGIN
-        FOR I := 1 TO N-1 DO
-            FOR J := 1 TO N-I DO
+        FOR I FROM 1 TO N-1 DO
+            FOR J FROM 1 TO N-I DO
                 IF A(J) > A(J+1) THEN
                     BEGIN
-                        TEMP    := A(J);
-                        A(J)    := A(J+1);
-                        A(J+1)  := TEMP
+                        A(J)   => TEMP;
+                        A(J+1) => A(J);
+                        TEMP   => A(J+1)
                     END
     END;
 
-    (* ... fill A with data ... *)
+    % ... fill A with data ...
     CALL SORT
 END
 ```
@@ -950,7 +912,7 @@ BEGIN
     END;
 
     WORD RESULT;
-    RESULT := FIB(10)   (* = 55 *)
+    FIB(10) => RESULT   % = 55
 END
 ```
 
@@ -961,19 +923,19 @@ BEGIN
     WORD PROCEDURE GCD (IN WORD A, IN WORD B);
     BEGIN
         WORD R;
-        WHILE B <> 0 DO
+        WHILE B /= 0 DO
             BEGIN
-                R := A MOD B;
-                A := B;
-                B := R
+                A MOD B => R;
+                B       => A;
+                R       => B
             END;
         RETURN(A)
     END;
 
     WORD X, Y, G;
-    X := 48;
-    Y := 18;
-    G := GCD(X, Y)    (* G = 6 *)
+    48        => X;
+    18        => Y;
+    GCD(X, Y) => G    % G = 6
 END
 ```
 
@@ -981,18 +943,20 @@ END
 
 ```
 BEGIN
-    (* Read a character from the PDP-11 console terminal *)
-    (* Console status register: 177560 octal             *)
-    (* Console data register:   177562 octal             *)
+    % Read a character from the PDP-11 console terminal
+    % Console status register: 177560 octal
+    % Console data register:   177562 octal
 
     BIT*16 STATUS;
-    BYTE CH;
+    BYTE   CH;
 
-    (* Wait for receiver ready (bit 7 of status) *)
-    WHILE ((STATUS^ := 177560B^) AND '0000000010000000'B) = 0 DO;
+    % Wait for receiver ready (bit 7 of status)
+    177560B^ => STATUS;
+    WHILE (STATUS AND '0000000010000000'B) = 0 DO
+        177560B^ => STATUS;
 
-    (* Read character from data register *)
-    CH := 177562B^
+    % Read character from data register
+    177562B^ => CH
 END
 ```
 
@@ -1007,16 +971,16 @@ BEGIN
     BEGIN
         WORD MID, MIDVAL;
         IF LO > HI THEN RETURN(-1);
-        MID    := (LO + HI) / 2;
-        MIDVAL := A(MID);
+        (LO + HI) / 2 => MID;
+        A(MID)         => MIDVAL;
         IF MIDVAL = KEY THEN RETURN(MID)
         ELSE IF MIDVAL < KEY THEN RETURN(BSEARCH(KEY, MID+1, HI))
         ELSE RETURN(BSEARCH(KEY, LO, MID-1))
     END;
 
     WORD POS;
-    (* assume A is filled with sorted data *)
-    POS := BSEARCH(42, 1, N)
+    % assume A is filled with sorted data
+    BSEARCH(42, 1, N) => POS
 END
 ```
 
@@ -1051,30 +1015,30 @@ Escape sequences follow C conventions: `\n` (newline), `\t` (tab), `\\` (backsla
 ### 11.3 Examples
 
 ```
-(* Simple message *)
+% Simple message
 PRINT('Hello, world!\n');
 
-(* Integer values *)
+% Integer values
 WORD X, Y;
-X := 6;
-Y := 7;
+6 => X;
+7 => Y;
 PRINT('X = %d, Y = %d, product = %d\n', X, Y, X * Y);
 
-(* Mixed types *)
+% Mixed types
 WORD COUNT;
 REAL AVG;
-COUNT := 42;
-AVG   := 3.14;
+42   => COUNT;
+3.14 => AVG;
 PRINT('Count: %d  Average: %f\n', COUNT, AVG);
 
-(* Characters *)
+% Characters
 BYTE CH;
-CH := 65;
+65 => CH;
 PRINT('Character: %c\n', CH);
 
-(* Long integers *)
+% Long integers
 LONG BIG;
-BIG := 100000;
+100000 => BIG;
 PRINT('Big number: %l\n', BIG);
 ```
 
@@ -1093,17 +1057,16 @@ PRINT('Big number: %l\n', BIG);
 AND         ARRAY       ASM         BEGIN       BIT
 BYTE        CALL        CASE        CHARACTER   COMMENT
 CONSTANT    DO          DOWNTO      ELSE        END
-FLOAT       FOR         FORWARD     GOTO        IF
-IN          INTEGER     LONG        MOD         NOT
-OF          OR          OUT         PC          PRINT
-PROCEDURE   REAL        REPEAT      RETURN      SHL
-SHR         SHRA        SP          THEN        TO
-UNTIL       WHILE       WORD        XOR
+FLOAT       FOR         FORWARD     FROM        GOTO
+IF          IN          INTEGER     LONG        MOD
+NOT         OF          OR          OUT         PC
+POP         PRINT       PROCEDURE   PUSH        REAL
+REPEAT      RETURN      SHL         SHR         SHRA
+SP          STEP        THEN        TO          UNTIL
+WHILE       WORD        XOR
 ```
 
-`INTEGER` and `FLOAT` are reserved aliases for `WORD` and `REAL` respectively.
-`SP` and `PC` are reserved aliases for the stack-pointer and program-counter registers.
-`COMMENT` is a reserved word that introduces a keyword comment (see §2.3); it is not available as an identifier.
+`INTEGER` and `FLOAT` are reserved aliases for `WORD` and `REAL` respectively. `SP` and `PC` are reserved aliases for the stack-pointer and program-counter registers. `FROM` and `STEP` introduce the UNH FOR loop extensions. `PUSH` and `POP` are built-in stack operations. `COMMENT` introduces a keyword comment.
 
 ## Appendix B: PDP-11 Register Names
 
@@ -1136,9 +1099,7 @@ SP  PC
 | `XOR`     | Logical    | 3          | Left       |
 | `=`       | Relational | 4          | Left       |
 | `/=`      | Relational | 4          | Left       |
-| `<>`      | Relational | 4          | Left       |
 | `<`       | Relational | 4          | Left       |
 | `>`       | Relational | 4          | Left       |
 | `<=`      | Relational | 4          | Left       |
 | `>=`      | Relational | 4          | Left       |
-| `:=`      | Assignment | 5 (stmt)   | Right      |

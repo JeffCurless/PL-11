@@ -1,4 +1,4 @@
-% assign_op.pl11 — Verify that => and := are equivalent assignment operators.
+% assign_op.pl11 — Test the => assignment operator (value => target).
 
 BEGIN
     WORD A, B, SUM, I;
@@ -21,9 +21,9 @@ BEGIN
         SUM + I => SUM;
     PRINT('1..5 sum: %d\n', SUM);      % expects 15
 
-    COMMENT Mix: := for init, => inside loop body;
-    SUM := 0;
-    I   := 1;
+    COMMENT => in WHILE loop;
+    0 => SUM;
+    1 => I;
     WHILE I <= 5 DO
         BEGIN
             SUM + I => SUM;

@@ -1,4 +1,4 @@
-(* fibonacci.pl11 — Recursive Fibonacci in PL-11 *)
+% fibonacci.pl11 — Recursive Fibonacci in PL-11
 
 BEGIN
     WORD PROCEDURE FIB (IN WORD N);
@@ -8,7 +8,7 @@ BEGIN
     END;
 
     WORD RESULT;
-    RESULT := FIB(20)
+    FIB(20) => RESULT
     PRINT( 'RESULT = %d\n', RESULT)
-    (* RESULT = 55 *)
+    % RESULT = 55
 END

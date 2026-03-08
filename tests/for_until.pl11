@@ -2,12 +2,12 @@ BEGIN
     INTEGER I;
     INTEGER FOUND;
 
-    found := 0;
+    0 => FOUND;
 
-    (* Scan 1..10, stop as soon as we hit 5 *)
-    FOR I := 1 TO 10 DO
-        found := I
+    % Scan 1..10, stop as soon as we hit 5
+    FOR I FROM 1 TO 10 DO
+        I => FOUND
     UNTIL I = 5;
 
-    PRINT('%d\n', found)
+    PRINT('%d\n', FOUND)
 END

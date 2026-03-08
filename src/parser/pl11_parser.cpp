@@ -134,10 +134,11 @@ std::unique_ptr<BlockNode> Parser::parseBlock() {
 
     auto block = std::make_unique<BlockNode>(loc);
 
-    // Declaration section: declarations always start with a type keyword, PROCEDURE, CONSTANT, or ARRAY
+    // Declaration section: declarations start with a type keyword, PROCEDURE, or CONSTANT.
+    // (ARRAY no longer starts a declaration — it now appears mid-declaration after the size.)
     while (true) {
         if (isTypeKeyword(cur_.kind) || cur_.kind == TokenKind::TOK_PROCEDURE ||
-            cur_.kind == TokenKind::TOK_CONSTANT || cur_.kind == TokenKind::TOK_ARRAY) {
+            cur_.kind == TokenKind::TOK_CONSTANT) {
             parseDeclarationGroup(block->decls);
             if (check(TokenKind::TOK_SEMI))
                 advance();
@@ -156,7 +157,7 @@ std::unique_ptr<BlockNode> Parser::parseBlock() {
 std::vector<ASTNodePtr> Parser::parseDeclSection() {
     std::vector<ASTNodePtr> decls;
     while (isTypeKeyword(cur_.kind) || cur_.kind == TokenKind::TOK_PROCEDURE ||
-           cur_.kind == TokenKind::TOK_CONSTANT || cur_.kind == TokenKind::TOK_ARRAY) {
+           cur_.kind == TokenKind::TOK_CONSTANT) {
         parseDeclarationGroup(decls);
         if (check(TokenKind::TOK_SEMI)) advance();
     }
@@ -172,17 +173,13 @@ void Parser::parseDeclarationGroup(std::vector<ASTNodePtr>& out) {
         out.push_back(parseProcDecl());
         return;
     }
-    if (cur_.kind == TokenKind::TOK_ARRAY) {
-        parseArrayDeclGroup(out);
-        return;
-    }
-    // Type keyword: var decl (possibly comma-separated) or typed procedure
+    // Type keyword: var decl, array decl, or typed procedure
     TypeSpec ts = parseTypeSpec();
     if (cur_.kind == TokenKind::TOK_PROCEDURE) {
         out.push_back(parseProcDecl(ts));  // pass return type
         return;
     }
-    // Variable declarations — handle comma-separated list
+    // Variable / array declarations
     parseVarDeclGroup(ts, out);
 }
 
@@ -208,7 +205,29 @@ ASTNodePtr Parser::parseDeclaration() {
 }
 
 void Parser::parseVarDeclGroup(TypeSpec ts, std::vector<ASTNodePtr>& out) {
-    // Parse one or more comma-separated variable declarators sharing the same type
+    // UNH array form: TYPE size ARRAY name[, name ...]
+    // Detected when the token after the type spec is an integer literal.
+    // e.g.:  WORD 5 ARRAY VALUES;    WORD 3, 4 ARRAY MATRIX;
+    if (check(TokenKind::TOK_INTEGER_LIT)) {
+        SourceLoc loc = cur_.loc;
+        std::vector<int> dims;
+        dims.push_back(static_cast<int>(cur_.intVal));
+        advance();
+        while (match(TokenKind::TOK_COMMA)) {
+            if (!check(TokenKind::TOK_INTEGER_LIT))
+                throw error("Expected integer dimension in array declaration");
+            dims.push_back(static_cast<int>(cur_.intVal));
+            advance();
+        }
+        expect(TokenKind::TOK_ARRAY);
+        do {
+            std::string name = expectIdentifier();
+            out.push_back(std::make_unique<VarDeclNode>(ts, name, dims, loc));
+        } while (match(TokenKind::TOK_COMMA));
+        return;
+    }
+
+    // Traditional form: name[, name] or name(dim[, dim...])[, ...]
     do {
         SourceLoc loc = cur_.loc;
         std::string name = expectIdentifier();
@@ -223,35 +242,6 @@ void Parser::parseVarDeclGroup(TypeSpec ts, std::vector<ASTNodePtr>& out) {
             } while (match(TokenKind::TOK_COMMA));
             expect(TokenKind::TOK_RPAREN);
         }
-        out.push_back(std::make_unique<VarDeclNode>(ts, name, dims, loc));
-    } while (match(TokenKind::TOK_COMMA));
-}
-
-// ARRAY dim[, dim ...] type name[, name ...]
-// Equivalent to the traditional:  type name(dim[, dim ...])
-void Parser::parseArrayDeclGroup(std::vector<ASTNodePtr>& out) {
-    SourceLoc loc = cur_.loc;
-    expect(TokenKind::TOK_ARRAY);
-
-    // One or more comma-separated integer dimensions
-    std::vector<int> dims;
-    if (cur_.kind != TokenKind::TOK_INTEGER_LIT)
-        throw error("Expected integer dimension after ARRAY");
-    dims.push_back(static_cast<int>(cur_.intVal));
-    advance();
-    while (match(TokenKind::TOK_COMMA)) {
-        if (cur_.kind != TokenKind::TOK_INTEGER_LIT)
-            throw error("Expected integer dimension in ARRAY declaration");
-        dims.push_back(static_cast<int>(cur_.intVal));
-        advance();
-    }
-
-    // Element type
-    TypeSpec ts = parseTypeSpec();
-
-    // One or more comma-separated variable names (all share the same dims)
-    do {
-        std::string name = expectIdentifier();
         out.push_back(std::make_unique<VarDeclNode>(ts, name, dims, loc));
     } while (match(TokenKind::TOK_COMMA));
 }
@@ -414,7 +404,6 @@ ASTNodePtr Parser::parseStatement() {
 
 // Parse an expression-headed statement:
 //   value => lvalue        (UNH assignment: value on left, target on right)
-//   lvalue := value        (traditional assignment)
 //   identifier : statement (label)
 ASTNodePtr Parser::parseExprStmt() {
     SourceLoc loc = cur_.loc;
@@ -438,8 +427,21 @@ ASTNodePtr Parser::parseExprStmt() {
         // start of the expression, then continue parsing postfix/binary ops.
         // Re-inject: temporarily parse the rest of the expression manually.
         // Build identifier node, then continue with postfix (subscript, deref, binary ops).
-        ASTNodePtr expr = std::make_unique<IdentifierNode>(name, nameLoc);
-        // Postfix: subscript or deref
+        // First postfix: function call or array subscript.
+        // Use FuncCallExprNode for identifier(args) so sema/codegen can
+        // distinguish function calls from array subscripts, matching parsePrimaryExpr.
+        ASTNodePtr expr;
+        if (check(TokenKind::TOK_LPAREN)) {
+            advance();
+            std::vector<ASTNodePtr> args;
+            if (!check(TokenKind::TOK_RPAREN))
+                args = parseArgList();
+            expect(TokenKind::TOK_RPAREN);
+            expr = std::make_unique<FuncCallExprNode>(name, std::move(args), nameLoc);
+        } else {
+            expr = std::make_unique<IdentifierNode>(name, nameLoc);
+        }
+        // Additional postfix: deref or further subscript
         while (check(TokenKind::TOK_LPAREN) || check(TokenKind::TOK_DEREF)) {
             if (check(TokenKind::TOK_LPAREN)) {
                 advance();
@@ -451,38 +453,27 @@ ASTNodePtr Parser::parseExprStmt() {
                 expr = std::make_unique<DerefExprNode>(std::move(expr), nameLoc);
             }
         }
-        // Now check for assignment operators or continue as binary expression
-        if (check(TokenKind::TOK_ASSIGN)) {
-            // Traditional form: lvalue := value
-            advance();
-            auto value = parseExpression();
-            return std::make_unique<AssignStmtNode>(std::move(expr), std::move(value), loc);
-        }
+        // Now check for assignment operator or continue as binary expression
         if (check(TokenKind::TOK_ARROW)) {
-            // UNH form — but identifier/array is the VALUE, not the target.
-            // The expression so far IS the value; parse the target after =>.
             advance();
             auto target = parseLValue();
             return std::make_unique<AssignStmtNode>(std::move(target), std::move(expr), loc);
         }
-        // Not assignment yet — might be binary expression (e.g. A + B => SUM).
-        // Continue parsing as an expression using the identifier as the leftmost term.
-        // We need to weave expr back into the expression hierarchy.
-        // The cleanest approach: treat expr as primary and continue parsing
-        // from the additive level upward, then check for =>.
-        // Actually: parse binary ops on top of expr.
-        // Re-enter parse hierarchy at rel level by wrapping in a lambda-free way:
-        // Parse add operators
+        // Not assignment yet — binary expression (e.g. A MOD B => R, A + B => SUM).
+        // Rebuild the expression hierarchy: mul → add → rel → expect =>.
+        while (isMulOp(cur_.kind)) {
+            TokenKind op = cur_.kind;
+            advance();
+            auto rhs = parseUnaryExpr();
+            expr = std::make_unique<BinaryExprNode>(op, std::move(expr), std::move(rhs), loc);
+        }
         while (isAddOp(cur_.kind)) {
             TokenKind op = cur_.kind;
             advance();
             auto rhs = parseMulExpr();
             expr = std::make_unique<BinaryExprNode>(op, std::move(expr), std::move(rhs), loc);
         }
-        // Parse rel operators
         if (isRelOp(cur_.kind)) {
-            // rel-level expression means it's a conditional expression, not an assignment lvalue
-            // this shouldn't appear in a statement context, but handle gracefully
             TokenKind op = cur_.kind;
             advance();
             auto rhs = parseAddExpr();
@@ -500,18 +491,12 @@ ASTNodePtr Parser::parseExprStmt() {
             auto target = parseLValue();
             return std::make_unique<AssignStmtNode>(std::move(target), std::move(expr), loc);
         }
-        throw error("Expected ':=' or '=>' in assignment statement");
+        throw error("Expected '=>' in assignment statement");
     }
 
     // Non-identifier expression-headed statement (literal, unary, paren, register, @):
     // Parse full expression, then expect =>.
     auto value = parseExpression();
-    if (check(TokenKind::TOK_ASSIGN)) {
-        // Allow := after a register or deref lvalue expression
-        advance();
-        auto rhs = parseExpression();
-        return std::make_unique<AssignStmtNode>(std::move(value), std::move(rhs), loc);
-    }
     expect(TokenKind::TOK_ARROW);
     auto target = parseLValue();
     return std::make_unique<AssignStmtNode>(std::move(target), std::move(value), loc);
@@ -585,8 +570,7 @@ ASTNodePtr Parser::parseForStmt() {
     expect(TokenKind::TOK_FOR);
     std::string var = expectIdentifier();
 
-    // Three syntaxes:
-    //   FOR var := start [TO|DOWNTO] end DO ...               (original)
+    // Two syntaxes:
     //   FOR var FROM start [STEP expr] [TO|DOWNTO] end DO ... (UNH with start)
     //   FOR var [STEP expr] [TO|DOWNTO] end DO ...            (UNH: use current value)
     ASTNodePtr start, step;
@@ -594,9 +578,6 @@ ASTNodePtr Parser::parseForStmt() {
         start = parseExpression();
         if (match(TokenKind::TOK_STEP))
             step = parseExpression();
-    } else if (check(TokenKind::TOK_ASSIGN)) {
-        advance();
-        start = parseExpression();
     } else {
         // No initialiser — loop starts at the variable's current value.
         // Next token must be STEP, TO, or DOWNTO.

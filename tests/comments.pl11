@@ -1,26 +1,21 @@
-% comments.pl11 — Test all three PL-11 comment forms:
-%   1.  (* ... *)     traditional block comment (may be nested)
-%   2.  COMMENT ... ; keyword comment terminated by semicolon
-%   3.  % ...         line comment (this very line is one)
+% comments.pl11 — Test UNH comment forms:
+%   1.  COMMENT ... ; keyword comment terminated by semicolon
+%   2.  % ...         line comment (this very line is one)
 
 BEGIN
     WORD A, B, RESULT;
 
     COMMENT Set up operands;
-    A := 10;
-    B := 32;
+    10 => A;
+    32 => B;
 
-    (* Compute the sum *)
-    RESULT := A + B;    % should be 42
+    A + B => RESULT;    % should be 42
 
     COMMENT This comment spans
             multiple lines and ends
             at the semicolon;
 
-    (* Nested block comments:
-       (* inner *)
-       are also supported *)
-    RESULT := RESULT + 0;   % no-op, just proves we reach this line
+    RESULT + 0 => RESULT;   % no-op, just proves we reach this line
 
     PRINT('Result: %d\n', RESULT)   % expects 42
 END

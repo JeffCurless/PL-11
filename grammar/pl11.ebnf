@@ -1,23 +1,23 @@
-(* PL-11 Formal Grammar — EBNF Notation                        *)
-(* Based on CERN Technical Report CERN-74-24, R.D. Russell     *)
-(*                                                             *)
-(* Conventions:                                                *)
-(*   { x }   — zero or more repetitions of x                  *)
-(*   [ x ]   — x is optional (zero or one)                    *)
-(*   ( x | y ) — x or y (alternation)                         *)
-(*   'kwd'  — terminal keyword (case-insensitive)              *)
-(*   UPPER  — non-terminal symbol                              *)
-(*   lower  — lexical token                                    *)
+% PL-11 Formal Grammar — EBNF Notation
+% UNH dialect (Dr. Robert Russell, University of New Hampshire)
+%
+% Conventions:
+%   { x }   — zero or more repetitions of x
+%   [ x ]   — x is optional (zero or one)
+%   ( x | y ) — x or y (alternation)
+%   'kwd'  — terminal keyword (case-insensitive)
+%   UPPER  — non-terminal symbol
+%   lower  — lexical token
 
-(* ============================================================ *)
-(* Top-Level Program                                           *)
-(* ============================================================ *)
+% ============================================================
+% Top-Level Program
+% ============================================================
 
 program         ::= block .
 
-(* ============================================================ *)
-(* Blocks                                                      *)
-(* ============================================================ *)
+% ============================================================
+% Blocks
+% ============================================================
 
 block           ::= 'BEGIN' decl_section stmt_list 'END' .
 
@@ -25,9 +25,9 @@ decl_section    ::= { declaration ';' } .
 
 stmt_list       ::= { statement ';' } [ statement ] .
 
-(* ============================================================ *)
-(* Declarations                                                *)
-(* ============================================================ *)
+% ============================================================
+% Declarations
+% ============================================================
 
 declaration     ::= var_decl
                   | array_decl
@@ -39,16 +39,16 @@ var_decl        ::= type_spec var_declarator { ',' var_declarator } .
 
 var_declarator  ::= identifier [ '(' dim_list ')' ] .
 
-(* UNH alternative array declaration: ARRAY size[, size ...] type name[, name ...] *)
+% UNH array declaration: ARRAY size[, size ...] type name[, name ...]
 array_decl      ::= 'ARRAY' integer_literal { ',' integer_literal }
                     type_spec identifier { ',' identifier } .
 
 dim_list        ::= expression { ',' expression } .
 
-type_spec       ::= 'BYTE'                           (* 8-bit signed integer  *)
-                  | 'WORD'                           (* 16-bit signed integer *)
-                  | 'LONG'                           (* 32-bit signed integer *)
-                  | 'INTEGER'                        (* alias for WORD        *)
+type_spec       ::= 'BYTE'                           % 8-bit signed integer
+                  | 'WORD'                           % 16-bit signed integer
+                  | 'LONG'                           % 32-bit signed integer
+                  | 'INTEGER'                        % alias for WORD
                   | 'REAL'    [ '*' integer_literal ]
                   | 'CHARACTER' [ '*' integer_literal ]
                   | 'BIT'    [ '*' integer_literal ] .
@@ -68,11 +68,11 @@ param_decl      ::= param_mode type_spec identifier { ',' identifier } .
 param_mode      ::= 'IN' 'OUT'
                   | 'IN'
                   | 'OUT'
-                  | (* empty — defaults to IN *) .
+                  | .              % empty — defaults to IN
 
-(* ============================================================ *)
-(* Statements                                                  *)
-(* ============================================================ *)
+% ============================================================
+% Statements
+% ============================================================
 
 statement       ::= assignment
                   | if_stmt
@@ -91,8 +91,7 @@ statement       ::= assignment
                   | pop_stmt
                   | block .
 
-assignment      ::= expression '=>' variable      (* UNH form: value => target *)
-                  | variable ':=' expression .    (* traditional form: target := value *)
+assignment      ::= expression '=>' variable .    % value => target
 
 if_stmt         ::= 'IF' expression 'THEN' statement
                     [ 'ELSE' statement ] .
@@ -103,15 +102,13 @@ for_stmt        ::= 'FOR' identifier for_init
                     ( 'TO' | 'DOWNTO' ) expression
                     'DO' statement [ 'UNTIL' expression ] .
 
-(* for_init controls how (and whether) the loop variable is initialised:
-     ':=' form  — traditional assignment
-     'FROM' form — UNH; explicit start value with optional step
-     step-only   — UNH; no initialisation, loop begins at variable's current value
-     empty       — UNH; no initialisation, default step ±1 *)
-for_init        ::= ':=' expression                                 (* traditional *)
-                  | 'FROM' expression [ 'STEP' expression ]         (* UNH with start *)
-                  | 'STEP' expression                               (* UNH: current value, explicit step *)
-                  | (* empty — current value, default step *) .
+% for_init controls how (and whether) the loop variable is initialised:
+%   'FROM' form — explicit start value with optional step
+%   step-only   — no initialisation, loop begins at variable's current value
+%   empty       — no initialisation, default step ±1
+for_init        ::= 'FROM' expression [ 'STEP' expression ]         % with start
+                  | 'STEP' expression                               % current value, explicit step
+                  | .                                               % current value, default step
 
 do_stmt         ::= 'DO' ( ';' | statement ) [ 'UNTIL' expression ] .
 
@@ -133,33 +130,32 @@ label_stmt      ::= identifier ':' statement .
 
 asm_stmt        ::= 'ASM' '(' string_literal ')' .
 
-(* PUSH / POP — PDP-11 stack operations (UNH extension)               *)
-(*   PUSH decrements SP by 2 then stores the value at the new SP.     *)
-(*   POP  loads a value from SP then increments SP by 2.              *)
+% PUSH / POP — PDP-11 stack operations (UNH extension)
+%   PUSH decrements SP by 2 then stores the value at the new SP.
+%   POP  loads a value from SP then increments SP by 2.
 push_stmt       ::= 'PUSH' expression .
 pop_stmt        ::= 'POP'  variable .
 
-(* PRINT: built-in formatted console output (maps to C printf)    *)
-(* Format specifiers: %d  WORD/BYTE   signed decimal             *)
-(*                    %l  LONG        signed decimal             *)
-(*                    %f  REAL        floating-point             *)
-(*                    %c  BYTE/WORD   character                  *)
-(*                    %s  CHARACTER   string                     *)
-(*                    %%              literal percent sign       *)
+% PRINT: built-in formatted console output (maps to C printf)
+% Format specifiers: %d  WORD/BYTE   signed decimal
+%                    %l  LONG        signed decimal
+%                    %f  REAL        floating-point
+%                    %c  BYTE/WORD   character
+%                    %s  CHARACTER   string
+%                    %%              literal percent sign
 print_stmt      ::= 'PRINT' '(' string_literal { ',' expression } ')' .
 
 arg_list        ::= expression { ',' expression } .
 
-(* ============================================================ *)
-(* Expressions                                                 *)
-(* ============================================================ *)
+% ============================================================
+% Expressions
+% ============================================================
 
-(* Operator precedence (lowest to highest binding):
-   Level 4 (lowest):  relational  =  <>  <  >  <=  >=
-   Level 3:           additive    +  -  OR  XOR
-   Level 2:           multiplicative  *  /  MOD  AND  SHL  SHR  SHRA
-   Level 1 (highest): unary       -  NOT
-*)
+% Operator precedence (lowest to highest binding):
+%   Level 4 (lowest):  relational  =  /=  <  >  <=  >=
+%   Level 3:           additive    +  -  OR  XOR
+%   Level 2:           multiplicative  *  /  MOD  AND  SHL  SHR  SHRA
+%   Level 1 (highest): unary       -  NOT
 
 expression      ::= rel_expr .
 
@@ -175,39 +171,37 @@ unary_expr      ::= '-' unary_expr
 
 postfix_expr    ::= primary_expr { postfix_op } .
 
-postfix_op      ::= '^'                              (* dereference *)
-                  | '(' arg_list ')'                 (* function call / array index *)
-                  | '(' arg_list ')'                 (* array indexing *)
+postfix_op      ::= '^'                              % dereference
+                  | '(' arg_list ')'                 % function call / array index
                   .
 
 primary_expr    ::= literal
                   | variable
-                  | '@' variable                     (* address-of *)
+                  | '@' variable                     % address-of
                   | function_call
                   | '(' expression ')' .
 
 function_call   ::= identifier '(' arg_list ')' .
 
-variable        ::= identifier [ '(' index_list ')' ]    (* array element *)
-                  | variable '^'                          (* dereferenced pointer *)
-                  | register_name .                       (* hardware register *)
+variable        ::= identifier [ '(' index_list ')' ]    % array element
+                  | variable '^'                          % dereferenced pointer
+                  | register_name .                       % hardware register
 
 index_list      ::= expression { ',' expression } .
 
-(* ============================================================ *)
-(* Operators                                                   *)
-(* ============================================================ *)
+% ============================================================
+% Operators
+% ============================================================
 
-rel_op          ::= '=' | '/=' | '<>' | '<' | '>' | '<=' | '>=' .
-                    (* '/=' and '<>' are synonymous not-equal operators *)
+rel_op          ::= '=' | '/=' | '<' | '>' | '<=' | '>=' .
 
 add_op          ::= '+' | '-' | 'OR' | 'XOR' .
 
 mul_op          ::= '*' | '/' | 'MOD' | 'AND' | 'SHL' | 'SHR' | 'SHRA' .
 
-(* ============================================================ *)
-(* Literals                                                    *)
-(* ============================================================ *)
+% ============================================================
+% Literals
+% ============================================================
 
 literal         ::= integer_literal
                   | real_literal
@@ -232,25 +226,24 @@ bit_literal     ::= "'" { '0' | '1' } "'" 'B' .
 
 address_literal ::= octal_literal 'B' .
 
-(* ============================================================ *)
-(* Reserved Words                                              *)
-(* (Updated set — INTEGER remains as an alias for WORD)        *)
-(* ============================================================ *)
-(*
-   AND   ASM     BEGIN  BIT    BYTE   CALL   CASE   CHARACTER
-   CONSTANT  DO  DOWNTO ELSE   END    FOR    FORWARD GOTO
-   IF    IN      LONG   MOD    NOT    OF     OR     OUT
-   PROCEDURE REAL REPEAT RETURN SHL   SHR    SHRA   SP
-   THEN  TO     UNTIL  WHILE  WORD   XOR
-*)
+% ============================================================
+% Reserved Words
+% (INTEGER remains as an alias for WORD)
+% ============================================================
+%
+%    AND   ASM     BEGIN  BIT    BYTE   CALL   CASE   CHARACTER
+%    CONSTANT  DO  DOWNTO ELSE   END    FOR    FORWARD GOTO
+%    IF    IN      LONG   MOD    NOT    OF     OR     OUT
+%    PROCEDURE REAL REPEAT RETURN SHL   SHR    SHRA   SP
+%    THEN  TO     UNTIL  WHILE  WORD   XOR
 
-(* ============================================================ *)
-(* Lexical Tokens                                              *)
-(* ============================================================ *)
+% ============================================================
+% Lexical Tokens
+% ============================================================
 
 identifier      ::= letter { letter | digit | '_' } .
 
-register_name   ::= 'R' digit [ digit ]              (* R0..R15 *)
+register_name   ::= 'R' digit [ digit ]              % R0..R15
                   | 'SP'
                   | 'PC' .
 
@@ -263,28 +256,26 @@ octal_digit     ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' .
 hex_digit       ::= digit | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
                           | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' .
 
-(* ============================================================ *)
-(* Reserved Words                                              *)
-(* (Updated set — all keywords including UNH extensions)       *)
-(* ============================================================ *)
-(*
-   AND   ARRAY   ASM    BEGIN   BIT     BYTE    CALL    CASE
-   CHARACTER     COMMENT        CONSTANT        DO      DOWNTO
-   ELSE  END     FLOAT   FOR    FORWARD  FROM   GOTO   IF
-   IN    INTEGER  LONG   MOD    NOT     OF      OR      OUT
-   PC    PRINT   PROCEDURE      REAL    REPEAT  RETURN  SHL
-   SHR   SHRA   SP     STEP    THEN    TO      UNTIL   WHILE   WORD  XOR
+% ============================================================
+% Reserved Words
+% (All keywords including UNH extensions)
+% ============================================================
+%
+%    AND   ARRAY   ASM    BEGIN   BIT     BYTE    CALL    CASE
+%    CHARACTER     COMMENT        CONSTANT        DO      DOWNTO
+%    ELSE  END     FLOAT   FOR    FORWARD  FROM   GOTO   IF
+%    IN    INTEGER  LONG   MOD    NOT     OF      OR      OUT
+%    PC    PRINT   PROCEDURE      REAL    REPEAT  RETURN  SHL
+%    SHR   SHRA   SP     STEP    THEN    TO      UNTIL   WHILE   WORD  XOR
+%
+%    INTEGER is an alias for WORD; FLOAT is an alias for REAL.
+%    SP and PC are reserved register aliases.
+%    COMMENT is a reserved word that introduces a keyword comment.
 
-   INTEGER is an alias for WORD; FLOAT is an alias for REAL.
-   SP and PC are reserved register aliases.
-   COMMENT is a reserved word that introduces a keyword comment.
-*)
-
-(* ============================================================ *)
-(* Comments (not captured in grammar — handled by lexer)       *)
-(* ============================================================ *)
-(*   Form 1: (* ... *)  — block comment; may be nested          *)
-(*   Form 2: % ...      — line comment; extends to end of line  *)
-(*           (% inside a string literal is not a comment)       *)
-(*   Form 3: COMMENT ... ; — keyword comment; extends to next ; *)
-(*   Keywords and identifiers are case-insensitive.             *)
+% ============================================================
+% Comments (not captured in grammar — handled by lexer)
+% ============================================================
+%   Form 1: % ...         — line comment; extends to end of line
+%           (% inside a string literal is not a comment)
+%   Form 2: COMMENT ... ; — keyword comment; extends to next ;
+%   Keywords and identifiers are case-insensitive.

@@ -38,9 +38,9 @@ PL-11 is an ALGOL-family, block-structured language with the following features:
 - `BEGIN … END` blocks with lexically scoped declarations
 - Types: `BYTE` (8-bit), `WORD`/`INTEGER` (16-bit), `LONG` (32-bit), `REAL`/`FLOAT` (32-bit
   float), `CHARACTER*N` (byte strings), `BIT*N` (bit strings)
-- Arrays in two syntaxes: `WORD A(10)` (traditional) or `ARRAY 10 WORD A` (UNH); both support
-  multi-dimensional: `WORD B(3, 4)` / `ARRAY 3, 4 WORD B`
-- Three comment forms: `(* … *)` block, `% … ` line (to end of line), `COMMENT … ;` keyword
+- Arrays in two syntaxes: `ARRAY 10 WORD A` or traditional `WORD A(10)`; both support
+  multi-dimensional: `ARRAY 3, 4 WORD B` / `WORD B(3, 4)`
+- Two comment forms: `% … ` line (to end of line), `COMMENT … ;` keyword
 - Control flow: `IF-THEN-ELSE`, `WHILE-DO`, `FOR-TO/DOWNTO-DO`, `REPEAT-UNTIL`, `CASE-OF-END`;
   UNH extensions add `DO` loop, optional `UNTIL` on `WHILE`/`FOR`, and `FOR … FROM … STEP`
 - Procedures with typed parameters and `IN`/`OUT`/`IN OUT` passing modes; typed functions via
@@ -70,7 +70,7 @@ Both loop forms accept an optional post-body early-exit test:
 
 ```
 WHILE condition DO statement UNTIL break_condition
-FOR var := start TO end DO statement UNTIL break_condition
+FOR var FROM start TO end DO statement UNTIL break_condition
 ```
 
 `break_condition` is evaluated **after** the body completes each iteration. If it is non-zero,
@@ -79,17 +79,17 @@ the check occurs before the increment step, so the loop variable retains its cur
 the exit point.
 
 ```
-(* Sum integers until the running total exceeds 100 *)
+% Sum integers until the running total exceeds 100
 WHILE I <= N DO
     BEGIN
-        SUM := SUM + A(I);
-        I := I + 1
+        SUM + A(I) => SUM;
+        I + 1 => I
     END
 UNTIL SUM > 100
 
-(* Linear search — stop at first match *)
-FOR I := 1 TO N DO
-    LAST := A(I)
+% Linear search — stop at first match
+FOR I FROM 1 TO N DO
+    A(I) => LAST
 UNTIL A(I) = KEY
 ```
 
@@ -98,13 +98,13 @@ new reserved words were introduced.
 
 #### Comment extensions — `%` and `COMMENT`
 
-Two additional comment forms were added alongside the original `(* … *)` block comment:
+Two comment forms are supported:
 
 **Percent line comment** — `%` outside a string literal starts a comment that extends to the end of the line:
 
 ```
 WORD COUNT;      % number of items processed
-I := I + 1;      % advance to next element
+I + 1 => I;      % advance to next element
 ```
 
 **Keyword comment** — `COMMENT` starts a comment that runs until the next `;`, and may span multiple lines:
@@ -118,29 +118,28 @@ COMMENT
 ;
 ```
 
-The terminating `;` is consumed by the comment and does not act as a statement separator. Neither form requires new reserved words beyond `COMMENT` itself.
+The terminating `;` is consumed by the comment and does not act as a statement separator. `COMMENT` is a reserved word.
 
 #### `FOR` loop extensions — `FROM`, `STEP`, and no-start form
 
-The UNH extensions add two new keywords and three new FOR loop header forms. All forms may be freely mixed in the same program and combine with `UNTIL`.
+Two new keywords and three FOR loop header forms. All forms may be freely mixed in the same program and combine with `UNTIL`.
 
 ```
-FOR var := start           [TO|DOWNTO] end DO ...   (* original *)
-FOR var FROM start [STEP n] [TO|DOWNTO] end DO ...   (* with start *)
-FOR var            [STEP n] [TO|DOWNTO] end DO ...   (* no start — use current value *)
+FOR var FROM start [STEP n] [TO|DOWNTO] end DO ...   % with start
+FOR var            [STEP n] [TO|DOWNTO] end DO ...   % no start — use current value
 ```
 
-**`FROM`** replaces `:=` as the start-value introducer. When both `FROM` and `:=` are absent, the loop variable is **not initialised** — it begins at whatever value it already holds. This allows continuing a scan where a previous loop left off, or using a register value directly.
+**`FROM`** introduces the start value. When `FROM` is absent, the loop variable is **not initialised** — it begins at whatever value it already holds. This allows continuing a scan where a previous loop left off, or using a register value directly.
 
 **`STEP`** gives an explicit per-iteration increment (any arithmetic expression, including a negative literal). When omitted the default is `+1` for `TO` and `−1` for `DOWNTO`.
 
 ```
-FOR I FROM 1  STEP 2  TO  9 DO ...   (* 1, 3, 5, 7, 9      *)
-FOR I FROM 10 STEP -2 DOWNTO 2 DO ... (* 10, 8, 6, 4, 2    *)
-I := 5;
-FOR I STEP -1 DOWNTO 1 DO ...        (* starts at 5: 5,4,3,2,1 *)
-I := 3;
-FOR I TO 10 DO ...                   (* starts at 3: 3,4,…,10  *)
+FOR I FROM 1  STEP 2  TO  9 DO ...   % 1, 3, 5, 7, 9
+FOR I FROM 10 STEP -2 DOWNTO 2 DO ... % 10, 8, 6, 4, 2
+5 => I;
+FOR I STEP -1 DOWNTO 1 DO ...        % starts at 5: 5,4,3,2,1
+3 => I;
+FOR I TO 10 DO ...                   % starts at 3: 3,4,…,10
 ```
 
 #### `ARRAY` declaration syntax
@@ -154,23 +153,23 @@ ARRAY size TYPE name
 This is a direct equivalent of the traditional `TYPE name(size)` form and compiles identically:
 
 ```
-ARRAY 512  BYTE  BUFFER;      (* same as BYTE BUFFER(512)     *)
-ARRAY 10   WORD  STACK;       (* same as WORD STACK(10)       *)
-ARRAY 3, 4 REAL  MATRIX;      (* same as REAL MATRIX(3, 4)    *)
-ARRAY 4    WORD  ROW, COL;    (* two separate arrays of 4     *)
+ARRAY 512  BYTE  BUFFER;      % same as BYTE BUFFER(512)
+ARRAY 10   WORD  STACK;       % same as WORD STACK(10)
+ARRAY 3, 4 REAL  MATRIX;      % same as REAL MATRIX(3, 4)
+ARRAY 4    WORD  ROW, COL;    % two separate arrays of 4
 ```
 
-Both syntaxes may be freely mixed within the same program. The word `ARRAY` is now a reserved keyword.
+Both syntaxes may be freely mixed within the same program. The word `ARRAY` is a reserved keyword.
 
 #### `DO` loop
 
 A general loop form with an optional body and optional `UNTIL` exit condition:
 
 ```
-DO ;                          (* infinite loop, empty body — smallest valid loop *)
-DO statement                  (* infinite loop with body *)
-DO statement UNTIL condition  (* post-test loop — body always runs at least once *)
-DO ;         UNTIL condition  (* condition-only post-test *)
+DO ;                          % infinite loop, empty body — smallest valid loop
+DO statement                  % infinite loop with body
+DO statement UNTIL condition  % post-test loop — body always runs at least once
+DO ;         UNTIL condition  % condition-only post-test
 ```
 
 When no `UNTIL` clause is present the loop runs forever, which is the intended behaviour for
@@ -179,11 +178,11 @@ after each body execution, so the body always executes at least once — making 
 strictly post-test, in contrast to `WHILE … DO` which is pre-test.
 
 ```
-(* Poll a hardware status register *)
+% Poll a hardware status register
 DO ;
 UNTIL STATUS^ AND '0000000010000000'B
 
-(* Read-process loop — body runs at least once *)
+% Read-process loop — body runs at least once
 DO
     BEGIN
         CALL READ_RECORD;
@@ -216,32 +215,23 @@ code-generation back-end with LLVM IR via `llvm::IRBuilder<>`, enabling:
 
 ### `/=` as the not-equal operator
 
-The UNH dialect uses `/=` as the primary not-equal operator (consistent with FORTRAN and
-Ada conventions). The original CERN report used `<>`; both are accepted and produce identical code:
+`/=` is the not-equal operator, consistent with FORTRAN and Ada conventions:
 
 ```
-IF X /= Y THEN ...       (* UNH form — preferred *)
-IF X <> Y THEN ...       (* CERN form — still accepted *)
-WHILE B /= 0 DO ...      (* typical use in loop conditions *)
+IF X /= Y THEN ...
+WHILE B /= 0 DO ...
 ```
 
 ### `=>` assignment operator
 
-The UNH dialect places the **value on the left** and the **target on the right**, separated by `=>`:
+The assignment operator places the **value on the left** and the **target on the right**, separated by `=>`:
 
 ```
-10        => B;           (* assign 10 to B          *)
-A + 9     => C;           (* assign expression to C  *)
-R0        => R1;          (* copy register R0 to R1  *)
--1        => R0;          (* assign -1 to R0         *)
-A + B     => SUM;         (* computed value to SUM   *)
-```
-
-The traditional ALGOL `:=` form is fully supported alongside `=>`. Both forms produce identical code and may be mixed freely:
-
-```
-SUM := 0;          (* traditional form *)
-1   => I;          (* UNH form         *)
+10        => B;           % assign 10 to B
+A + 9     => C;           % assign expression to C
+R0        => R1;          % copy register R0 to R1
+-1        => R0;          % assign -1 to R0
+A + B     => SUM;         % computed value to SUM
 ```
 
 Assignment is always a statement; it cannot appear inside an expression. A single `=` denotes equality comparison only. `<=` and `>=` are relational operators and are not valid as assignment forms.
@@ -257,17 +247,17 @@ as a synonym for `WORD` for readability.
 Two built-in statements provide PDP-11-style stack manipulation:
 
 ```
-PUSH expression    (* SP := SP - 2;  mem[SP] := expression  — pre-decrement *)
-POP  variable      (* variable := mem[SP];  SP := SP + 2    — post-increment *)
+PUSH expression    % SP := SP - 2;  mem[SP] := expression  — pre-decrement
+POP  variable      % variable := mem[SP];  SP := SP + 2    — post-increment
 ```
 
 PUSH accepts any expression; POP accepts any variable, array element, or register:
 
 ```
-PUSH A + B;        (* push computed value *)
-PUSH R0;           (* save register *)
-POP R0;            (* restore register *)
-POP VALS(I);       (* pop into array element *)
+PUSH A + B;        % push computed value
+PUSH R0;           % save register
+POP R0;            % restore register
+POP VALS(I);       % pop into array element
 ```
 
 On the LLVM target, a 256-word simulated stack is used (actual PDP-11 memory is not present); R6 is kept synchronised as the simulated stack-pointer address.
@@ -303,12 +293,12 @@ pl11/
     ├── for_until.pl11       FOR  … UNTIL extension (UNH)
     ├── do_loop.pl11         DO loop with and without UNTIL (UNH)
     ├── primes.pl11          First 1000 primes via trial division
-    ├── comments.pl11        All three comment forms: (* *), %, COMMENT…; (UNH)
-    ├── array_decl.pl11      ARRAY size TYPE name declaration syntax (UNH)
-    ├── for_step.pl11        FOR … FROM … STEP loop syntax (UNH)
-    ├── for_nostart.pl11     FOR loop using variable's current value (UNH)
-    ├── neq_op.pl11          /= not-equal operator and <> synonym (UNH)
-    ├── assign_op.pl11       => assignment operator alongside := (UNH)
+    ├── comments.pl11        Both comment forms: %, COMMENT…;
+    ├── array_decl.pl11      ARRAY size TYPE name declaration syntax
+    ├── for_step.pl11        FOR … FROM … STEP loop syntax
+    ├── for_nostart.pl11     FOR loop using variable's current value
+    ├── neq_op.pl11          /= not-equal operator
+    ├── assign_op.pl11       => assignment operator
     └── push_pop.pl11        PUSH / POP stack operations (UNH)
 ```
 

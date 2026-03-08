@@ -122,8 +122,7 @@ statement
     ;
 
 assignment
-    : expression ARROW variable       // UNH form: value => target
-    | variable ASSIGN_OP expression   // traditional form: target := value
+    : expression ARROW variable       // value => target
     ;
 
 ifStmt
@@ -139,14 +138,12 @@ forStmt
       DO statement (UNTIL expression)?
     ;
 
-// Four header forms for the loop variable initialiser:
-//   FOR i := start            — traditional assignment
-//   FOR i FROM start [STEP n] — UNH explicit start with optional step
-//   FOR i STEP n              — UNH no init, explicit step (use current value)
-//   FOR i                     — UNH no init, default step ±1 (use current value)
+// Three header forms for the loop variable initialiser:
+//   FOR i FROM start [STEP n] — explicit start with optional step
+//   FOR i STEP n              — no init, explicit step (use current value)
+//   FOR i                     — no init, default step ±1 (use current value)
 forInit
-    : ASSIGN_OP expression                           // FOR i := start
-    | FROM expression (STEP expression)?             // FOR i FROM start [STEP n]
+    : FROM expression (STEP expression)?             // FOR i FROM start [STEP n]
     | STEP expression                                // FOR i STEP n  (current value)
     |                                                // FOR i         (current value, default step)
     ;
@@ -260,7 +257,7 @@ indexList
 // ---- Operators ----
 
 relOp
-    : EQ | NEQ | NEQ_ALT | LT | GT | LEQ | GEQ
+    : EQ | NEQ | LT | GT | LEQ | GEQ
     ;
 
 addOp
@@ -350,12 +347,10 @@ POP         : 'POP' ;
 PUSH        : 'PUSH' ;
 
 // Operators and punctuation
-ASSIGN_OP   : ':=' ;
-ARROW       : '=>' ;   // UNH: value => lvalue assignment
+ARROW       : '=>' ;   // value => target assignment
 ASSIGN      : '=' ;
 EQ          : '=' ;
-NEQ         : '<>' ;   // CERN form — synonym for /=
-NEQ_ALT     : '/=' ;   // UNH form — preferred not-equal operator
+NEQ         : '/=' ;   // not-equal operator
 LEQ         : '<=' ;
 GEQ         : '>=' ;
 LT          : '<' ;
@@ -416,13 +411,7 @@ IDENTIFIER
     : [A-Za-z] [A-Za-z0-9_]*
     ;
 
-// Comments — three forms, all skipped:
-//   (* ... *)    Block comment. ANTLR does not natively support nesting;
-//                for production use, implement a custom lexer action.
-BLOCK_COMMENT
-    : '(*' .*? '*)' -> skip
-    ;
-
+// Comments — two forms, all skipped:
 //   % ...        Line comment — extends to end of line.
 //                (% inside a STRING_LITERAL is not a comment; that case
 //                 must be handled before this rule fires.)

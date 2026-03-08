@@ -1,52 +1,52 @@
-(* control_flow.pl11 — Exercise all major control structures *)
+% control_flow.pl11 — Exercise all major control structures
 
 BEGIN
     WORD I, SUM, X, CODE;
     BIT*16 FLAGS;
 
-    (* WHILE loop *)
-    SUM := 0;
-    I   := 1;
+    % WHILE loop
+    0 => SUM;
+    1 => I;
     WHILE I <= 10 DO
         BEGIN
-            SUM := SUM + I;
-            I   := I + 1
+            SUM + I => SUM;
+            I + 1   => I
         END;
 
-    (* FOR loop TO *)
-    SUM := 0;
-    FOR I := 1 TO 5 DO
-        SUM := SUM + I;
+    % FOR loop TO
+    0 => SUM;
+    FOR I FROM 1 TO 5 DO
+        SUM + I => SUM;
 
-    (* FOR loop DOWNTO *)
-    FOR I := 5 DOWNTO 1 DO
-        SUM := SUM + I;
+    % FOR loop DOWNTO
+    FOR I FROM 5 DOWNTO 1 DO
+        SUM + I => SUM;
 
-    (* IF-THEN-ELSE *)
-    X := 42;
+    % IF-THEN-ELSE
+    42 => X;
     IF X > 0 THEN
-        SUM := SUM + 1
+        SUM + 1 => SUM
     ELSE
-        SUM := SUM - 1;
+        SUM - 1 => SUM;
 
-    (* CASE statement *)
-    CODE := 2;
+    % CASE statement
+    2 => CODE;
     CASE CODE OF
-        1 : SUM := 100;
-        2 : SUM := 200;
-        3 : SUM := 300
+        1 : 100 => SUM;
+        2 : 200 => SUM;
+        3 : 300 => SUM
     END;
 
-    (* REPEAT-UNTIL *)
-    I := 0;
+    % REPEAT-UNTIL
+    0 => I;
     REPEAT
-        I := I + 1
+        I + 1 => I
     UNTIL I >= 5;
 
-    (* Bitwise operations *)
-    FLAGS := '1010101010101010'B;
-    FLAGS := FLAGS AND '1111111100000000'B;
-    FLAGS := FLAGS OR  '0000000000001111'B;
-    FLAGS := NOT FLAGS
+    % Bitwise operations
+    '1010101010101010'B          => FLAGS;
+    FLAGS AND '1111111100000000'B => FLAGS;
+    FLAGS OR  '0000000000001111'B => FLAGS;
+    NOT FLAGS                    => FLAGS
 
 END

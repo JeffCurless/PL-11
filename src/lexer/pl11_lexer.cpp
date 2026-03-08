@@ -76,7 +76,7 @@ const char* tokenKindName(TokenKind k) {
     CASE(TOK_RETURN); CASE(TOK_SHL); CASE(TOK_SHR); CASE(TOK_SHRA);
     CASE(TOK_SP); CASE(TOK_STEP); CASE(TOK_THEN); CASE(TOK_TO); CASE(TOK_UNTIL);
     CASE(TOK_WHILE); CASE(TOK_WORD); CASE(TOK_XOR); CASE(TOK_REGISTER);
-    CASE(TOK_ASSIGN); CASE(TOK_ARROW); CASE(TOK_EQ); CASE(TOK_NEQ); CASE(TOK_LT);
+    CASE(TOK_ARROW); CASE(TOK_EQ); CASE(TOK_NEQ); CASE(TOK_LT);
     CASE(TOK_GT); CASE(TOK_LEQ); CASE(TOK_GEQ); CASE(TOK_PLUS);
     CASE(TOK_MINUS); CASE(TOK_STAR); CASE(TOK_SLASH); CASE(TOK_AT);
     CASE(TOK_DEREF); CASE(TOK_LPAREN); CASE(TOK_RPAREN); CASE(TOK_SEMI);
@@ -134,18 +134,6 @@ Token Lexer::errorToken(const std::string& msg) {
 void Lexer::skipWhitespace() {
     while (pos_ < src_.size() && std::isspace(static_cast<unsigned char>(current())))
         advance();
-}
-
-// Skip (* ... *) comments — nested, so (* (* *) *) works
-void Lexer::skipComment() {
-    // current() == '(' and peek1() == '*'
-    advance(); advance();  // consume (*
-    int depth = 1;
-    while (pos_ < src_.size() && depth > 0) {
-        if (current() == '(' && peek1() == '*') { advance(); advance(); ++depth; }
-        else if (current() == '*' && peek1() == ')') { advance(); advance(); --depth; }
-        else advance();
-    }
 }
 
 // Skip % line comment — from '%' to (but not including) the newline
@@ -373,10 +361,8 @@ Token Lexer::readOperator() {
 
     switch (c) {
     case ':':
-        if (c1 == '=') return tok(TokenKind::TOK_ASSIGN, 2);
         return tok(TokenKind::TOK_COLON, 1);
     case '<':
-        if (c1 == '>') return tok(TokenKind::TOK_NEQ, 2);
         if (c1 == '=') return tok(TokenKind::TOK_LEQ, 2);
         return tok(TokenKind::TOK_LT, 1);
     case '>':
@@ -413,9 +399,7 @@ Token Lexer::next() {
     // Skip whitespace and comments (all forms)
     while (true) {
         skipWhitespace();
-        if (current() == '(' && peek1() == '*') {
-            skipComment();           // (* ... *)
-        } else if (current() == '%') {
+        if (current() == '%') {
             skipLineComment();       // % ... <eol>
         } else if (isCommentKeyword()) {
             skipCommentStatement();  // COMMENT ... ;

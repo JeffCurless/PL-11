@@ -74,10 +74,9 @@ enum class TokenKind {
     TOK_REGISTER,       // value stored in Token::regNum
 
     // Operators
-    TOK_ASSIGN,         // :=
     TOK_ARROW,          // =>  (UNH: value => lvalue assignment)
     TOK_EQ,             // =
-    TOK_NEQ,            // <>
+    TOK_NEQ,            // /=
     TOK_LT,             // <
     TOK_GT,             // >
     TOK_LEQ,            // <=
@@ -162,7 +161,6 @@ private:
     char peek1() const;
     void advance();
     void skipWhitespace();
-    void skipComment();           // (* ... *)
     void skipLineComment();       // % ... <eol>
     void skipCommentStatement();  // COMMENT ... ;
     bool isCommentKeyword() const;

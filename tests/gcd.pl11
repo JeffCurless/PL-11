@@ -1,21 +1,21 @@
-(* gcd.pl11 — Greatest common divisor using Euclidean algorithm *)
+% gcd.pl11 — Greatest common divisor using Euclidean algorithm
 
 BEGIN
     WORD PROCEDURE GCD (IN WORD A, IN WORD B);
     BEGIN
         WORD R;
-        WHILE B <> 0 DO
+        WHILE B /= 0 DO
             BEGIN
-                R := A MOD B;
-                A := B;
-                B := R
+                A MOD B => R;
+                B       => A;
+                R       => B
             END;
         RETURN(A)
     END;
 
     WORD X, Y, G;
-    X := 48;
-    Y := 18;
-    G := GCD(X, Y)
-    (* G = 6 *)
+    48       => X;
+    18       => Y;
+    GCD(X, Y) => G
+    % G = 6
 END

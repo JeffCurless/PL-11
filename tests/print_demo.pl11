@@ -1,4 +1,4 @@
-(* print_demo.pl11 — Demonstrates the PRINT statement *)
+% print_demo.pl11 — Demonstrates the PRINT statement
 
 BEGIN
     WORD  I;
@@ -7,36 +7,36 @@ BEGIN
     REAL  PI;
     BYTE  CH;
 
-    (* Plain string *)
+    % Plain string
     PRINT('PL-11 PRINT demo\n');
 
-    (* %d: WORD decimal *)
-    I := 42;
+    % %d: WORD decimal
+    42 => I;
     PRINT('Answer: %d\n', I);
 
-    (* %d with expression *)
+    % %d with expression
     PRINT('6 * 7 = %d\n', 6 * 7);
 
-    (* %l: LONG decimal *)
-    BIG := 75000;
+    % %l: LONG decimal
+    75000 => BIG;
     PRINT('Big: %l\n', BIG);
 
-    (* %f: REAL floating-point *)
-    PI := 3.14159;
+    % %f: REAL floating-point
+    3.14159 => PI;
     PRINT('Pi ~ %f\n', PI);
 
-    (* %c: character from integer code *)
-    CH := 65;
+    % %c: character from integer code
+    65 => CH;
     PRINT('Letter: %c\n', CH);
 
-    (* %% escaping *)
+    % %% escaping
     PRINT('100%% complete\n');
 
-    (* Factorial loop with PRINT — LONG holds up to 12! cleanly *)
-    FACT := 1;
-    FOR I := 1 TO 12 DO
+    % Factorial loop with PRINT — LONG holds up to 12! cleanly
+    1 => FACT;
+    FOR I FROM 1 TO 12 DO
         BEGIN
-            FACT := FACT * I;
+            FACT * I => FACT;
             PRINT('%d! = %l\n', I, FACT)
         END
 END

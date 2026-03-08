@@ -2,14 +2,14 @@ BEGIN
     INTEGER I;
     INTEGER SUM;
 
-    I := 1;
-    SUM := 0;
+    1 => I;
+    0 => SUM;
 
-    (* Sum 1..10, but stop early if SUM exceeds 20 *)
+    % Sum 1..10, but stop early if SUM exceeds 20
     WHILE I <= 10 DO
         BEGIN
-            SUM := SUM + I;
-            I := I + 1
+            SUM + I => SUM;
+            I + 1   => I
         END
     UNTIL SUM > 20;
 

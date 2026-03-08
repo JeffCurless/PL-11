@@ -1,7 +1,7 @@
 % push_pop.pl11 — Test PUSH and POP stack operations (PDP-11 UNH extension).
 %
-% PUSH expr  : SP := SP - 2;  mem[SP] := expr   (pre-decrement)
-% POP  target: target := mem[SP];  SP := SP + 2  (post-increment)
+% PUSH expr  : SP = SP - 2;  mem[SP] = expr   (pre-decrement)
+% POP  target: target = mem[SP];  SP = SP + 2  (post-increment)
 %
 % Since the SP global is initialised to 0, we point it at a scratch buffer
 % before any PUSH/POP so the store/load has a valid address on a hosted system.
@@ -16,7 +16,7 @@ BEGIN
     % We initialise SP to a small integer offset that our test can track.
 
     COMMENT Simple round-trip: push a value, pop it back;
-    A := 42;
+    42 => A;
     PUSH A;
     POP B;
     PRINT('Push/pop round-trip: %d\n', B);   % expects 42
@@ -30,8 +30,8 @@ BEGIN
     PRINT('LIFO second pop: %d\n', C);       % expects 10
 
     COMMENT Push an expression;
-    A := 7;
-    B := 6;
+    7 => A;
+    6 => B;
     PUSH A * B;
     POP C;
     PRINT('Expression push: %d\n', C)        % expects 42
