@@ -1,0 +1,46 @@
+(* primes.pl11 — Compute and print the first 1000 prime numbers
+   Uses trial division against previously found primes.
+   The 1000th prime is 7919; all values fit in a WORD (max 32767). *)
+
+BEGIN
+    WORD PRIMES(1000);
+    WORD COUNT;
+    WORD CANDIDATE;
+    WORD I;
+    WORD IS_PRIME;
+
+    COUNT     := 0;
+    CANDIDATE := 2;
+
+    WHILE COUNT < 1000 DO
+        BEGIN
+            IS_PRIME := 1;
+            I        := 1;
+
+            (* Trial divide by each known prime.
+               Stop early when PRIMES(I)^2 > CANDIDATE (no larger factor possible)
+               or when a factor is found (IS_PRIME = 0).
+               Note: AND here is bitwise but operands are 0/1 so it acts as logical AND. *)
+            WHILE (I <= COUNT) AND (IS_PRIME = 1) DO
+                IF PRIMES(I) * PRIMES(I) > CANDIDATE THEN
+                    I := COUNT + 1          (* past the end — forces loop exit *)
+                ELSE
+                    BEGIN
+                        IF CANDIDATE MOD PRIMES(I) = 0 THEN
+                            IS_PRIME := 0;
+                        I := I + 1
+                    END;
+
+            IF IS_PRIME = 1 THEN
+                BEGIN
+                    COUNT          := COUNT + 1;
+                    PRIMES(COUNT)  := CANDIDATE
+                END;
+
+            CANDIDATE := CANDIDATE + 1
+        END;
+
+    FOR I := 1 TO 1000 DO
+        PRINT('%d\n', PRIMES(I))
+
+END

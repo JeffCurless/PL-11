@@ -73,6 +73,7 @@ statement       ::= assignment
                   | if_stmt
                   | while_stmt
                   | for_stmt
+                  | do_stmt
                   | repeat_stmt
                   | case_stmt
                   | proc_call_stmt
@@ -93,6 +94,8 @@ while_stmt      ::= 'WHILE' expression 'DO' statement [ 'UNTIL' expression ] .
 for_stmt        ::= 'FOR' identifier ':=' expression
                     ( 'TO' | 'DOWNTO' ) expression
                     'DO' statement [ 'UNTIL' expression ] .
+
+do_stmt         ::= 'DO' ( ';' | statement ) [ 'UNTIL' expression ] .
 
 repeat_stmt     ::= 'REPEAT' stmt_list 'UNTIL' expression .
 

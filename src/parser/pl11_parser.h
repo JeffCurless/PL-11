@@ -59,6 +59,7 @@ private:
     ASTNodePtr parseIfStmt();
     ASTNodePtr parseWhileStmt();
     ASTNodePtr parseForStmt();
+    ASTNodePtr parseDoStmt();
     ASTNodePtr parseRepeatStmt();
     ASTNodePtr parseCaseStmt();
     ASTNodePtr parseProcCallStmt(std::string name, SourceLoc loc);

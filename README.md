@@ -31,7 +31,8 @@ PL-11 is an ALGOL-family, block-structured language with the following features:
 - Types: `BYTE` (8-bit), `WORD`/`INTEGER` (16-bit), `LONG` (32-bit), `REAL`/`FLOAT` (32-bit
   float), `CHARACTER*N` (byte strings), `BIT*N` (bit strings)
 - Arrays declared inline with dimension lists: `WORD A(10)`, `WORD B(3, 4)`
-- Control flow: `IF-THEN-ELSE`, `WHILE-DO`, `FOR-TO/DOWNTO-DO`, `REPEAT-UNTIL`, `CASE-OF-END`
+- Control flow: `IF-THEN-ELSE`, `WHILE-DO`, `FOR-TO/DOWNTO-DO`, `REPEAT-UNTIL`, `CASE-OF-END`;
+  UNH extensions add `DO` loop and optional `UNTIL` clause on `WHILE` and `FOR`
 - Procedures with typed parameters and `IN`/`OUT`/`IN OUT` passing modes; typed functions via
   `type PROCEDURE name(…)`
 - `GOTO` with forward and backward labels
@@ -46,7 +47,14 @@ PL-11 is an ALGOL-family, block-structured language with the following features:
 The following features are present in this implementation but were not part of the original
 report, or extend it in ways consistent with the spirit of the language:
 
-### `UNTIL` clause on `WHILE` and `FOR` loops
+### UNH extensions — Dr. Robert Russell, University of New Hampshire
+
+The three loop-control extensions below were designed by Dr. Robert Russell at the University
+of New Hampshire as part of ongoing work with the PL-11 language after the original CERN report.
+They follow the same syntactic and semantic conventions as the base language and introduce no
+new reserved words.
+
+#### `UNTIL` clause on `WHILE` and `FOR` loops
 
 Both loop forms accept an optional post-body early-exit test:
 
@@ -77,6 +85,36 @@ UNTIL A(I) = KEY
 
 The `UNTIL` keyword already existed in the original language (used by `REPEAT … UNTIL`); no
 new reserved words were introduced.
+
+#### `DO` loop
+
+A general loop form with an optional body and optional `UNTIL` exit condition:
+
+```
+DO ;                          (* infinite loop, empty body — smallest valid loop *)
+DO statement                  (* infinite loop with body *)
+DO statement UNTIL condition  (* post-test loop — body always runs at least once *)
+DO ;         UNTIL condition  (* condition-only post-test *)
+```
+
+When no `UNTIL` clause is present the loop runs forever, which is the intended behaviour for
+spin-waits and event loops in systems software. When `UNTIL` is present the condition is tested
+after each body execution, so the body always executes at least once — making `DO … UNTIL`
+strictly post-test, in contrast to `WHILE … DO` which is pre-test.
+
+```
+(* Poll a hardware status register *)
+DO ;
+UNTIL STATUS^ AND '0000000010000000'B
+
+(* Read-process loop — body runs at least once *)
+DO
+    BEGIN
+        CALL READ_RECORD;
+        CALL PROCESS_RECORD
+    END
+UNTIL END_OF_FILE = 1
+```
 
 ### `PRINT` statement
 
@@ -133,8 +171,10 @@ pl11/
     ├── control_flow.pl11
     ├── sort.pl11
     ├── print_demo.pl11
-    ├── while_until.pl11    WHILE … UNTIL extension test
-    └── for_until.pl11      FOR  … UNTIL extension test
+    ├── while_until.pl11    WHILE … UNTIL extension test (UNH)
+    ├── for_until.pl11      FOR  … UNTIL extension test (UNH)
+    ├── do_loop.pl11        DO loop extension test (UNH)
+    └── primes.pl11         First 1000 primes via trial division (system verification)
 ```
 
 ---
@@ -238,7 +278,10 @@ LLVM IR  ──►  opt / llc / clang  ──►  native executable
 
 ---
 
-## Reference
+## References
 
 Russell, R.D. (1974). *PL-11: A Programming Language for the DEC PDP-11 Computer*. CERN
 Technical Report CERN-74-24. European Organisation for Nuclear Research, Geneva.
+
+Russell, R.D. University of New Hampshire. Extensions to PL-11: `UNTIL` clause for `WHILE`
+and `FOR` loops; `DO` loop construct.

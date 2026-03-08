@@ -101,6 +101,7 @@ statement
     | ifStmt
     | whileStmt
     | forStmt
+    | doStmt
     | repeatStmt
     | caseStmt
     | procCallStmt
@@ -127,6 +128,10 @@ whileStmt
 forStmt
     : FOR IDENTIFIER ASSIGN_OP expression (TO | DOWNTO) expression
       DO statement (UNTIL expression)?
+    ;
+
+doStmt
+    : DO (SEMI | statement) (UNTIL expression)?
     ;
 
 repeatStmt

@@ -458,7 +458,56 @@ UNTIL condition
 
 This is a post-test loop: the body executes at least once, and repeats until `condition` is non-zero.
 
-### 6.6 GOTO and Labels
+### 6.6 DO
+
+```
+DO ;
+DO statement
+DO statement UNTIL break_condition
+DO ;         UNTIL break_condition
+```
+
+`DO` is a general loop form. The body is executed repeatedly until the optional `UNTIL` condition becomes non-zero. When no `UNTIL` clause is present, the loop runs forever (useful for spin-waits and event loops). `DO ;` is the minimal form: an empty body with no exit condition — an infinite loop.
+
+The `UNTIL` check occurs **after** each body execution (post-test), so for `DO stmt UNTIL cond`, the body always runs at least once.
+
+Control flow:
+```
+→ do.body:  [body, may be empty]
+→ do.until: if break_cond → do.exit    ← only when UNTIL present
+→           else          → do.body
+→ do.exit:
+```
+Without `UNTIL`, the back-edge is unconditional and no exit block exists.
+
+Examples:
+
+```
+(* Infinite spin-wait — smallest possible loop *)
+DO ;
+
+(* Poll until a hardware flag is set *)
+DO ;
+UNTIL STATUS^ AND '0000000010000000'B
+
+(* Read-process loop: body runs at least once *)
+DO
+    BEGIN
+        CALL READ_RECORD;
+        CALL PROCESS_RECORD
+    END
+UNTIL END_OF_FILE = 1
+
+(* Bounded retry with UNTIL — exit when done or limit reached *)
+DO
+    BEGIN
+        CALL TRY_OPERATION;
+        RETRIES := RETRIES + 1
+    END
+UNTIL DONE = 1
+```
+
+### 6.7 GOTO and Labels
 
 PL-11 supports labeled statements and `GOTO` for low-level control flow, primarily for implementing machine-level constructs:
 

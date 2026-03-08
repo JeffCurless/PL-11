@@ -184,6 +184,9 @@ void Sema::analyseStmt(ASTNode& node) {
             throw typeError("FOR loop bounds must be arithmetic", fs->loc);
         analyseStmt(*fs->body);
         if (fs->untilCond) analyseExpr(*fs->untilCond);
+    } else if (auto* ds = dynamic_cast<DoStmtNode*>(&node)) {
+        if (ds->body) analyseStmt(*ds->body);
+        if (ds->untilCond) analyseExpr(*ds->untilCond);
     } else if (auto* rs = dynamic_cast<RepeatStmtNode*>(&node)) {
         for (auto& s : rs->stmts) analyseStmt(*s);
         analyseExpr(*rs->cond);

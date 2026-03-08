@@ -86,6 +86,7 @@ bool Parser::isStatementStart() const {
     case TokenKind::TOK_IF:
     case TokenKind::TOK_WHILE:
     case TokenKind::TOK_FOR:
+    case TokenKind::TOK_DO:
     case TokenKind::TOK_REPEAT:
     case TokenKind::TOK_CASE:
     case TokenKind::TOK_CALL:
@@ -326,6 +327,8 @@ ASTNodePtr Parser::parseStatement() {
         return parseWhileStmt();
     case TokenKind::TOK_FOR:
         return parseForStmt();
+    case TokenKind::TOK_DO:
+        return parseDoStmt();
     case TokenKind::TOK_REPEAT:
         return parseRepeatStmt();
     case TokenKind::TOK_CASE:
@@ -434,6 +437,21 @@ ASTNodePtr Parser::parseForStmt() {
         untilCond = parseExpression();
     return std::make_unique<ForStmtNode>(var, std::move(start), std::move(end),
                                          downto, std::move(body), std::move(untilCond), loc);
+}
+
+ASTNodePtr Parser::parseDoStmt() {
+    SourceLoc loc = cur_.loc;
+    expect(TokenKind::TOK_DO);
+    ASTNodePtr body;
+    if (check(TokenKind::TOK_SEMI)) {
+        advance();  // consume null-body ';' (e.g. DO ; or DO ; UNTIL cond)
+    } else if (isStatementStart()) {
+        body = parseStatement();
+    }
+    ASTNodePtr untilCond;
+    if (match(TokenKind::TOK_UNTIL))
+        untilCond = parseExpression();
+    return std::make_unique<DoStmtNode>(std::move(body), std::move(untilCond), loc);
 }
 
 ASTNodePtr Parser::parseRepeatStmt() {

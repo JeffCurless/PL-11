@@ -404,6 +404,32 @@ void Codegen::genStmt(ASTNode& node) {
 
         builder_.SetInsertPoint(exitBB);
 
+    } else if (auto* ds = dynamic_cast<DoStmtNode*>(&node)) {
+        auto* bodyBB = llvm::BasicBlock::Create(ctx_, "do.body", curFunc_);
+        builder_.CreateBr(bodyBB);
+        builder_.SetInsertPoint(bodyBB);
+        if (ds->body) genStmt(*ds->body);
+
+        if (ds->untilCond) {
+            auto* untilBB = llvm::BasicBlock::Create(ctx_, "do.until", curFunc_);
+            auto* exitBB  = llvm::BasicBlock::Create(ctx_, "do.exit",  curFunc_);
+            if (!builder_.GetInsertBlock()->getTerminator())
+                builder_.CreateBr(untilBB);
+            builder_.SetInsertPoint(untilBB);
+            llvm::Value* uc = genExpr(*ds->untilCond);
+            uc = builder_.CreateICmpNE(uc,
+                 llvm::ConstantInt::get(uc->getType(), 0), "docond");
+            builder_.CreateCondBr(uc, exitBB, bodyBB);
+            builder_.SetInsertPoint(exitBB);
+        } else {
+            // No UNTIL — infinite loop; back-edge to do.body
+            if (!builder_.GetInsertBlock()->getTerminator())
+                builder_.CreateBr(bodyBB);
+            // Subsequent code is unreachable; give it a home
+            auto* deadBB = llvm::BasicBlock::Create(ctx_, "do.after", curFunc_);
+            builder_.SetInsertPoint(deadBB);
+        }
+
     } else if (auto* rs = dynamic_cast<RepeatStmtNode*>(&node)) {
         auto* bodyBB = llvm::BasicBlock::Create(ctx_, "repeat.body", curFunc_);
         auto* exitBB = llvm::BasicBlock::Create(ctx_, "repeat.exit", curFunc_);
@@ -714,8 +740,28 @@ llvm::Value* Codegen::genExpr(ASTNode& node) {
 
     if (auto* n = dynamic_cast<FuncCallExprNode*>(&node)) {
         CodegenSymbol* sym = lookupSymbol(n->name);
-        if (!sym || !sym->func)
-            throw CodegenError("Undefined function: " + n->name);
+        if (!sym) throw CodegenError("Undefined: " + n->name, n->loc);
+
+        // Array read — same disambiguation as sema: VARIABLE/CONSTANT → array index
+        if (sym->kind == SymbolKind::VARIABLE || sym->kind == SymbolKind::CONSTANT) {
+            if (!sym->alloca)
+                throw CodegenError("Cannot index non-array: " + n->name, n->loc);
+            std::vector<llvm::Value*> idxs;
+            idxs.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx_), 0));
+            for (auto& arg : n->args) {
+                llvm::Value* i = genExpr(*arg);
+                i = builder_.CreateIntCast(i, llvm::Type::getInt32Ty(ctx_), true);
+                i = builder_.CreateSub(i,
+                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx_), 1), "idx0");
+                idxs.push_back(i);
+            }
+            llvm::Value* ptr = builder_.CreateGEP(
+                sym->alloca->getAllocatedType(), sym->alloca, idxs, "elemptr");
+            return builder_.CreateLoad(llvmType(sym->type), ptr, "elem");
+        }
+
+        if (!sym->func)
+            throw CodegenError("Undefined function: " + n->name, n->loc);
         std::vector<llvm::Value*> args;
         for (auto& a : n->args) args.push_back(genExpr(*a));
         return builder_.CreateCall(sym->func, args, "call");

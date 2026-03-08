@@ -71,6 +71,7 @@ enum class NodeKind {
     IF_STMT,
     WHILE_STMT,
     FOR_STMT,
+    DO_STMT,
     REPEAT_STMT,
     CASE_STMT,
     CASE_ARM,
@@ -248,6 +249,13 @@ struct ForStmtNode : ASTNode {
         : ASTNode(NodeKind::FOR_STMT, l), loopVar(std::move(v)),
           start(std::move(s)), end(std::move(e)), downto(dt),
           body(std::move(b)), untilCond(std::move(u)) {}
+};
+
+struct DoStmtNode : ASTNode {
+    ASTNodePtr body;      // null for empty body (DO ;)
+    ASTNodePtr untilCond; // null for infinite loop (no UNTIL)
+    DoStmtNode(ASTNodePtr b, ASTNodePtr u, SourceLoc l)
+        : ASTNode(NodeKind::DO_STMT, l), body(std::move(b)), untilCond(std::move(u)) {}
 };
 
 struct RepeatStmtNode : ASTNode {
