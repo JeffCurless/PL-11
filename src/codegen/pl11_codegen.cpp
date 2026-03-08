@@ -595,8 +595,16 @@ void Codegen::genStmt(ASTNode& node) {
 // ============================================================
 
 llvm::Value* Codegen::genExpr(ASTNode& node) {
-    if (auto* n = dynamic_cast<IntLiteralNode*>(&node))
-        return llvm::ConstantInt::get(llvm::Type::getInt16Ty(ctx_), n->value, true);
+    if (auto* n = dynamic_cast<IntLiteralNode*>(&node)) {
+        // Use the narrowest signed type that holds the value without truncation.
+        // Assignment codegen will widen/narrow to the target variable's type.
+        long long v = n->value;
+        if (v >= -32768 && v <= 32767)
+            return llvm::ConstantInt::get(llvm::Type::getInt16Ty(ctx_), v, true);
+        if (v >= -2147483648LL && v <= 2147483647LL)
+            return llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx_), v, true);
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(ctx_), v, true);
+    }
 
     if (auto* n = dynamic_cast<RealLiteralNode*>(&node))
         return llvm::ConstantFP::get(llvm::Type::getFloatTy(ctx_), n->value);

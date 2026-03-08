@@ -94,24 +94,70 @@ install(TARGETS pl11c DESTINATION bin)
 # ============================================================
 enable_testing()
 
-# Test: lex a sample program
-add_test(NAME lex_hello
-    COMMAND pl11c --lex ${CMAKE_SOURCE_DIR}/tests/hello.pl11
-)
-
-# Test: parse a sample program
-add_test(NAME parse_hello
-    COMMAND pl11c --parse ${CMAKE_SOURCE_DIR}/tests/hello.pl11
-)
-
-# Test: semantic analysis
-add_test(NAME sema_hello
-    COMMAND pl11c --sema ${CMAKE_SOURCE_DIR}/tests/hello.pl11
-)
-
-# Test: emit LLVM IR (only if built with LLVM)
+# Locate LLC and Clang for execution tests (WITH_LLVM builds only)
 if(PL11_WITH_LLVM)
-    add_test(NAME emit_llvm_hello
-        COMMAND pl11c --emit-llvm ${CMAKE_SOURCE_DIR}/tests/hello.pl11
-    )
+    find_program(LLC   NAMES llc-19   llc-18   llc-17   llc   REQUIRED)
+    find_program(CLANG NAMES clang-19 clang-18 clang-17 clang REQUIRED)
+    message(STATUS "Test tools: LLC=${LLC}  CLANG=${CLANG}")
 endif()
+
+# ── Helper: register lex / parse / sema / ir / exec tests for one source ──
+#
+# pl11_add_tests(NAME <name> SOURCE <file.pl11>)
+#
+# Always registers:
+#   lex_<name>   — tokenise only
+#   parse_<name> — parse to AST
+#   sema_<name>  — semantic analysis
+#
+# When PL11_WITH_LLVM is ON, additionally registers:
+#   ir_<name>   — emit LLVM IR (syntax check)
+#   exec_<name> — compile + run; if tests/<name>.expected exists, compare stdout
+#
+function(pl11_add_tests)
+    cmake_parse_arguments(ARG "" "NAME;SOURCE" "" ${ARGN})
+    set(SRC "${CMAKE_SOURCE_DIR}/${ARG_SOURCE}")
+
+    add_test(NAME lex_${ARG_NAME}
+        COMMAND pl11c --lex "${SRC}")
+    add_test(NAME parse_${ARG_NAME}
+        COMMAND pl11c --parse "${SRC}")
+    add_test(NAME sema_${ARG_NAME}
+        COMMAND pl11c --sema "${SRC}")
+
+    if(PL11_WITH_LLVM)
+        add_test(NAME ir_${ARG_NAME}
+            COMMAND pl11c --emit-llvm "${SRC}")
+
+        set(EXPECTED "${CMAKE_SOURCE_DIR}/tests/${ARG_NAME}.expected")
+        if(EXISTS "${EXPECTED}")
+            set(EXPECTED_ARG "-DEXPECTED_FILE=${EXPECTED}")
+        else()
+            set(EXPECTED_ARG "")
+        endif()
+
+        add_test(NAME exec_${ARG_NAME}
+            COMMAND "${CMAKE_COMMAND}"
+                -DPLC11C=$<TARGET_FILE:pl11c>
+                -DPL11C=$<TARGET_FILE:pl11c>
+                -DLLC=${LLC}
+                -DCLANG=${CLANG}
+                -DSOURCE=${SRC}
+                -DTMPDIR=${CMAKE_BINARY_DIR}/test_tmp
+                ${EXPECTED_ARG}
+                -P "${CMAKE_SOURCE_DIR}/tests/run_pl11_test.cmake"
+        )
+    endif()
+endfunction()
+
+# ── Register all test programs ─────────────────────────────────────────────
+pl11_add_tests(NAME hello         SOURCE tests/hello.pl11)
+pl11_add_tests(NAME fibonacci     SOURCE tests/fibonacci.pl11)
+pl11_add_tests(NAME gcd           SOURCE tests/gcd.pl11)
+pl11_add_tests(NAME control_flow  SOURCE tests/control_flow.pl11)
+pl11_add_tests(NAME sort          SOURCE tests/sort.pl11)
+pl11_add_tests(NAME print_demo    SOURCE tests/print_demo.pl11)
+pl11_add_tests(NAME while_until   SOURCE tests/while_until.pl11)
+pl11_add_tests(NAME for_until     SOURCE tests/for_until.pl11)
+pl11_add_tests(NAME do_loop       SOURCE tests/do_loop.pl11)
+pl11_add_tests(NAME primes        SOURCE tests/primes.pl11)
