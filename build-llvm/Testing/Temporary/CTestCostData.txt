@@ -1,0 +1,5 @@
+lex_hello 6 0.00296801
+parse_hello 6 0.00225775
+sema_hello 6 0.00204168
+emit_llvm_hello 6 0.00293941
+---

@@ -1,0 +1,52 @@
+(* control_flow.pl11 — Exercise all major control structures *)
+
+BEGIN
+    WORD I, SUM, X, CODE;
+    BIT*16 FLAGS;
+
+    (* WHILE loop *)
+    SUM := 0;
+    I   := 1;
+    WHILE I <= 10 DO
+        BEGIN
+            SUM := SUM + I;
+            I   := I + 1
+        END;
+
+    (* FOR loop TO *)
+    SUM := 0;
+    FOR I := 1 TO 5 DO
+        SUM := SUM + I;
+
+    (* FOR loop DOWNTO *)
+    FOR I := 5 DOWNTO 1 DO
+        SUM := SUM + I;
+
+    (* IF-THEN-ELSE *)
+    X := 42;
+    IF X > 0 THEN
+        SUM := SUM + 1
+    ELSE
+        SUM := SUM - 1;
+
+    (* CASE statement *)
+    CODE := 2;
+    CASE CODE OF
+        1 : SUM := 100;
+        2 : SUM := 200;
+        3 : SUM := 300
+    END;
+
+    (* REPEAT-UNTIL *)
+    I := 0;
+    REPEAT
+        I := I + 1
+    UNTIL I >= 5;
+
+    (* Bitwise operations *)
+    FLAGS := '1010101010101010'B;
+    FLAGS := FLAGS AND '1111111100000000'B;
+    FLAGS := FLAGS OR  '0000000000001111'B;
+    FLAGS := NOT FLAGS
+
+END

@@ -1,0 +1,23 @@
+(* sort.pl11 — Bubble sort on an integer array *)
+(* Note: this compiler requires array dimensions to be integer literals *)
+
+BEGIN
+    CONSTANT WORD N = 8;
+    WORD A(8), I, J, TEMP;
+
+    (* Initialize with values in reverse order *)
+    FOR I := 1 TO N DO
+        A(I) := N - I + 1;
+
+    (* Bubble sort *)
+    FOR I := 1 TO N - 1 DO
+        FOR J := 1 TO N - I DO
+            IF A(J) > A(J + 1) THEN
+                BEGIN
+                    TEMP    := A(J);
+                    A(J)    := A(J + 1);
+                    A(J + 1) := TEMP
+                END
+
+    (* A is now sorted 1..N *)
+END

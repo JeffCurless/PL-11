@@ -1,0 +1,13 @@
+BEGIN
+    INTEGER I;
+    INTEGER FOUND;
+
+    FOUND := 0;
+
+    (* Scan 1..10, stop as soon as we hit 5 *)
+    FOR I := 1 TO 10 DO
+        FOUND := I
+    UNTIL I = 5;
+
+    PRINT('%d\n', FOUND)
+END

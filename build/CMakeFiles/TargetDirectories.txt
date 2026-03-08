@@ -1,0 +1,8 @@
+/home/curless/workspace/pl11/build/CMakeFiles/pl11c.dir
+/home/curless/workspace/pl11/build/CMakeFiles/test.dir
+/home/curless/workspace/pl11/build/CMakeFiles/edit_cache.dir
+/home/curless/workspace/pl11/build/CMakeFiles/rebuild_cache.dir
+/home/curless/workspace/pl11/build/CMakeFiles/list_install_components.dir
+/home/curless/workspace/pl11/build/CMakeFiles/install.dir
+/home/curless/workspace/pl11/build/CMakeFiles/install/local.dir
+/home/curless/workspace/pl11/build/CMakeFiles/install/strip.dir

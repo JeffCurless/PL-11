@@ -1,0 +1,42 @@
+(* print_demo.pl11 — Demonstrates the PRINT statement *)
+
+BEGIN
+    WORD  I;
+    LONG  FACT;
+    LONG  BIG;
+    REAL  PI;
+    BYTE  CH;
+
+    (* Plain string *)
+    PRINT('PL-11 PRINT demo\n');
+
+    (* %d: WORD decimal *)
+    I := 42;
+    PRINT('Answer: %d\n', I);
+
+    (* %d with expression *)
+    PRINT('6 * 7 = %d\n', 6 * 7);
+
+    (* %l: LONG decimal *)
+    BIG := 75000;
+    PRINT('Big: %l\n', BIG);
+
+    (* %f: REAL floating-point *)
+    PI := 3.14159;
+    PRINT('Pi ~ %f\n', PI);
+
+    (* %c: character from integer code *)
+    CH := 65;
+    PRINT('Letter: %c\n', CH);
+
+    (* %% escaping *)
+    PRINT('100%% complete\n');
+
+    (* Factorial loop with PRINT — LONG holds up to 12! cleanly *)
+    FACT := 1;
+    FOR I := 1 TO 12 DO
+        BEGIN
+            FACT := FACT * I;
+            PRINT('%d! = %l\n', I, FACT)
+        END
+END

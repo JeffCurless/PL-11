@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# pl11build — compile one or more PL-11 source files to a native executable
+#
+# Usage:
+#   pl11build [options] file.pl11 [file2.pl11 ...]
+#
+# Options:
+#   -o <name>     Output executable name  (default: basename of first source)
+#   --keep-ir     Keep the intermediate .ll files after compilation
+#   --emit-llvm   Write .ll files only; do not assemble or link
+#   -v            Verbose: print each command before running it
+#   -h, --help    Show this help
+
+set -euo pipefail
+
+# ------------------------------------------------------------------ #
+# Helpers
+# ------------------------------------------------------------------ #
+
+die()  { echo "pl11build: error: $*" >&2; exit 1; }
+info() { echo "pl11build: $*" >&2; }
+run()  {
+    if [[ $VERBOSE -eq 1 ]]; then
+        echo "+ $*" >&2
+    fi
+    "$@"
+}
+
+usage() {
+    sed -n '2,/^$/{ s/^# \{0,1\}//; p }' "$0"
+    exit 0
+}
+
+# ------------------------------------------------------------------ #
+# Locate pl11c
+# ------------------------------------------------------------------ #
+
+find_pl11c() {
+    # 1. Same directory as this script
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    for candidate in \
+        "$script_dir/build-llvm/pl11c" \
+        "$script_dir/build/pl11c" \
+        "$(command -v pl11c 2>/dev/null || true)"
+    do
+        if [[ -x "$candidate" ]]; then
+            echo "$candidate"
+            return
+        fi
+    done
+    die "pl11c not found. Build the compiler first:
+  cmake -S . -B build-llvm -DPL11_WITH_LLVM=ON && cmake --build build-llvm"
+}
+
+# ------------------------------------------------------------------ #
+# Locate LLVM tools (try versioned names first)
+# ------------------------------------------------------------------ #
+
+find_tool() {
+    local base="$1"
+    for candidate in "${base}-19" "${base}-18" "${base}-17" "${base}"; do
+        if command -v "$candidate" &>/dev/null; then
+            echo "$candidate"
+            return
+        fi
+    done
+    die "$base not found. Install LLVM (apt install llvm clang)."
+}
+
+# ------------------------------------------------------------------ #
+# Parse arguments
+# ------------------------------------------------------------------ #
+
+OUTPUT=""
+KEEP_IR=0
+EMIT_LLVM_ONLY=0
+VERBOSE=0
+SOURCES=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o)          [[ $# -gt 1 ]] || die "-o requires an argument"; OUTPUT="$2"; shift 2 ;;
+        --keep-ir)   KEEP_IR=1;        shift ;;
+        --emit-llvm) EMIT_LLVM_ONLY=1; shift ;;
+        -v)          VERBOSE=1;        shift ;;
+        -h|--help)   usage ;;
+        -*)          die "Unknown option: $1" ;;
+        *.pl11)      SOURCES+=("$1");  shift ;;
+        *)           die "Unexpected argument '$1' (expected a .pl11 file)" ;;
+    esac
+done
+
+[[ ${#SOURCES[@]} -gt 0 ]] || die "No .pl11 source files specified."
+
+# ------------------------------------------------------------------ #
+# Resolve tools
+# ------------------------------------------------------------------ #
+
+PL11C="$(find_pl11c)"
+LLC="$(find_tool llc)"
+CLANG="$(find_tool clang)"
+
+[[ $VERBOSE -eq 1 ]] && info "pl11c : $PL11C" && info "llc   : $LLC" && info "clang : $CLANG"
+
+# ------------------------------------------------------------------ #
+# Default output name: basename of first source, no extension
+# ------------------------------------------------------------------ #
+
+if [[ -z "$OUTPUT" ]]; then
+    first="${SOURCES[0]}"
+    OUTPUT="$(basename "${first%.pl11}")"
+fi
+
+# ------------------------------------------------------------------ #
+# Temp-file tracking and cleanup
+# ------------------------------------------------------------------ #
+
+TMPFILES=()
+cleanup() {
+    if [[ $KEEP_IR -eq 0 && $EMIT_LLVM_ONLY -eq 0 ]]; then
+        for f in "${TMPFILES[@]}"; do
+            rm -f "$f"
+        done
+    fi
+}
+trap cleanup EXIT
+
+# ------------------------------------------------------------------ #
+# Compile each source: .pl11 → .ll → .o
+# ------------------------------------------------------------------ #
+
+OBJECTS=()
+
+for src in "${SOURCES[@]}"; do
+    [[ -f "$src" ]] || die "File not found: $src"
+
+    base="$(basename "${src%.pl11}")"
+    src_dir="$(cd "$(dirname "$src")" && pwd)"
+
+    ll="${src_dir}/${base}.ll"
+    obj="${src_dir}/${base}.o"
+
+    TMPFILES+=("$ll" "$obj")
+
+    # ---- sema check + IR emission ----
+    info "Compiling $src → $ll"
+    run "$PL11C" --emit-llvm "$src" > "$ll" \
+        || die "Compilation failed for $src"
+
+    if [[ $EMIT_LLVM_ONLY -eq 1 ]]; then
+        info "IR written to $ll"
+        [[ $KEEP_IR -eq 1 ]] || TMPFILES=("${TMPFILES[@]/$ll}")  # keep it
+        continue
+    fi
+
+    # ---- IR → object file ----
+    info "Assembling $ll → $obj"
+    run "$LLC" -filetype=obj "$ll" -o "$obj" \
+        || die "Assembly failed for $ll"
+
+    OBJECTS+=("$obj")
+done
+
+[[ $EMIT_LLVM_ONLY -eq 1 ]] && exit 0
+
+# ------------------------------------------------------------------ #
+# Link all object files
+# ------------------------------------------------------------------ #
+
+info "Linking → $OUTPUT"
+run "$CLANG" "${OBJECTS[@]}" -o "$OUTPUT" \
+    || die "Linking failed"
+
+info "Done: $OUTPUT"

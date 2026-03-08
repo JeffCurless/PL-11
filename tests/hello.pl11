@@ -1,0 +1,14 @@
+(* hello.pl11 — Minimal PL-11 program                *)
+(* Computes a simple arithmetic result.               *)
+(* PL-11 has no built-in I/O; output would be via    *)
+(* device registers on the PDP-11.                   *)
+
+BEGIN
+    WORD X, Y, SUM;
+
+    X   := 10;
+    Y   := 32;
+    SUM := X + Y
+
+    (* SUM = 42 *)
+END

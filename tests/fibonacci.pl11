@@ -1,0 +1,13 @@
+(* fibonacci.pl11 — Recursive Fibonacci in PL-11 *)
+
+BEGIN
+    WORD PROCEDURE FIB (IN WORD N);
+    BEGIN
+        IF N <= 1 THEN RETURN(N)
+        ELSE RETURN(FIB(N - 1) + FIB(N - 2))
+    END;
+
+    WORD RESULT;
+    RESULT := FIB(10)
+    (* RESULT = 55 *)
+END
