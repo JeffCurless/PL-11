@@ -284,6 +284,14 @@ void Sema::analyseStmt(ASTNode& node) {
         ps->specs = specs;
     }
     // GotoStmt, AsmStmt: no type checking needed
+    // PUSH: analyse the value expression
+    if (auto* push = dynamic_cast<PushStmtNode*>(&node)) {
+        analyseExpr(*push->value);
+    }
+    // POP: analyse the target lvalue
+    if (auto* pop = dynamic_cast<PopStmtNode*>(&node)) {
+        analyseExpr(*pop->target);
+    }
 }
 
 // ============================================================

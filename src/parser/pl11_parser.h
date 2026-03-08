@@ -69,6 +69,8 @@ private:
     ASTNodePtr parseGotoStmt();
     ASTNodePtr parseAsmStmt();
     ASTNodePtr parsePrintStmt();
+    ASTNodePtr parsePushStmt();
+    ASTNodePtr parsePopStmt();
 
     // Expressions
     ASTNodePtr parseExpression();

@@ -93,6 +93,8 @@ bool Parser::isStatementStart() const {
     case TokenKind::TOK_GOTO:
     case TokenKind::TOK_ASM:
     case TokenKind::TOK_PRINT:
+    case TokenKind::TOK_PUSH:
+    case TokenKind::TOK_POP:
     // Expression-headed statements (assignment / label)
     case TokenKind::TOK_IDENTIFIER:
     case TokenKind::TOK_REGISTER:
@@ -388,6 +390,10 @@ ASTNodePtr Parser::parseStatement() {
         return parseAsmStmt();
     case TokenKind::TOK_PRINT:
         return parsePrintStmt();
+    case TokenKind::TOK_PUSH:
+        return parsePushStmt();
+    case TokenKind::TOK_POP:
+        return parsePopStmt();
     // Expression-headed statements: assignment (both := and => forms) and labels
     case TokenKind::TOK_IDENTIFIER:
     case TokenKind::TOK_REGISTER:
@@ -529,6 +535,12 @@ ASTNodePtr Parser::parseLValue() {
         }
     } else if (check(TokenKind::TOK_REGISTER)) {
         lval = std::make_unique<RegisterNode>(cur_.regNum, loc);
+        advance();
+    } else if (check(TokenKind::TOK_SP)) {
+        lval = std::make_unique<RegisterNode>(6, loc);
+        advance();
+    } else if (check(TokenKind::TOK_PC)) {
+        lval = std::make_unique<RegisterNode>(7, loc);
         advance();
     } else {
         throw error("Expected assignment target (variable or register), got '" + cur_.text + "'");
@@ -715,6 +727,20 @@ ASTNodePtr Parser::parsePrintStmt() {
     return std::make_unique<PrintStmtNode>(fmt, std::move(args), loc);
 }
 
+ASTNodePtr Parser::parsePushStmt() {
+    SourceLoc loc = cur_.loc;
+    expect(TokenKind::TOK_PUSH);
+    auto value = parseExpression();
+    return std::make_unique<PushStmtNode>(std::move(value), loc);
+}
+
+ASTNodePtr Parser::parsePopStmt() {
+    SourceLoc loc = cur_.loc;
+    expect(TokenKind::TOK_POP);
+    auto target = parseLValue();
+    return std::make_unique<PopStmtNode>(std::move(target), loc);
+}
+
 // ============================================================
 // Expressions
 // ============================================================
@@ -822,6 +848,14 @@ ASTNodePtr Parser::parsePrimaryExpr() {
     case TokenKind::TOK_REGISTER: {
         int rn = cur_.regNum; advance();
         return std::make_unique<RegisterNode>(rn, loc);
+    }
+    case TokenKind::TOK_SP: {   // SP = R6 on PDP-11
+        advance();
+        return std::make_unique<RegisterNode>(6, loc);
+    }
+    case TokenKind::TOK_PC: {   // PC = R7 on PDP-11
+        advance();
+        return std::make_unique<RegisterNode>(7, loc);
     }
     case TokenKind::TOK_AT: {
         advance();

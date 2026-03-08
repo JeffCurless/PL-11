@@ -90,6 +90,12 @@ private:
     // PDP-11 register globals (R0-R15) — created on demand
     std::array<llvm::GlobalVariable*, 16> regGlobals_{};
 
+    // Simulated PDP-11 stack for PUSH/POP (256 words, index-based)
+    // Created on first PUSH or POP encountered.
+    llvm::GlobalVariable* simStack_    = nullptr;  // [256 x i16]
+    llvm::GlobalVariable* simStackIdx_ = nullptr;  // i32, initialised to 256 (empty)
+    void ensureSimStack();
+
     // printf declaration — created on demand
     llvm::FunctionCallee getPrintf();
 

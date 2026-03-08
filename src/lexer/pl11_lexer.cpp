@@ -41,7 +41,9 @@ const std::unordered_map<std::string, TokenKind> Lexer::keywords_ = {
     {"OR",        TokenKind::TOK_OR},
     {"OUT",       TokenKind::TOK_OUT},
     {"PC",        TokenKind::TOK_PC},
+    {"POP",       TokenKind::TOK_POP},
     {"PRINT",     TokenKind::TOK_PRINT},
+    {"PUSH",      TokenKind::TOK_PUSH},
     {"PROCEDURE", TokenKind::TOK_PROCEDURE},
     {"REAL",      TokenKind::TOK_REAL},
     {"REPEAT",    TokenKind::TOK_REPEAT},
@@ -70,7 +72,7 @@ const char* tokenKindName(TokenKind k) {
     CASE(TOK_FLOAT); CASE(TOK_FOR); CASE(TOK_FORWARD); CASE(TOK_FROM); CASE(TOK_GOTO);
     CASE(TOK_IF); CASE(TOK_IN); CASE(TOK_INTEGER); CASE(TOK_LONG); CASE(TOK_MOD);
     CASE(TOK_NOT); CASE(TOK_OF); CASE(TOK_OR); CASE(TOK_OUT);
-    CASE(TOK_PC); CASE(TOK_PRINT); CASE(TOK_PROCEDURE); CASE(TOK_REAL); CASE(TOK_REPEAT);
+    CASE(TOK_PC); CASE(TOK_POP); CASE(TOK_PRINT); CASE(TOK_PUSH); CASE(TOK_PROCEDURE); CASE(TOK_REAL); CASE(TOK_REPEAT);
     CASE(TOK_RETURN); CASE(TOK_SHL); CASE(TOK_SHR); CASE(TOK_SHRA);
     CASE(TOK_SP); CASE(TOK_STEP); CASE(TOK_THEN); CASE(TOK_TO); CASE(TOK_UNTIL);
     CASE(TOK_WHILE); CASE(TOK_WORD); CASE(TOK_XOR); CASE(TOK_REGISTER);

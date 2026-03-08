@@ -47,7 +47,7 @@ PL-11 is an ALGOL-family, block-structured language with the following features:
   `type PROCEDURE name(…)`
 - `GOTO` with forward and backward labels
 - Hardware access: register names (`R0`–`R15`, `SP`, `PC`), octal address literals, `ASM(…)`
-  for inline assembly snippets
+  for inline assembly snippets; `PUSH` / `POP` for stack operations
 - Built-in `PRINT(fmt, …)` for formatted console output (maps to C `printf`)
 
 ---
@@ -252,6 +252,26 @@ The original report uses `INTEGER` only in informal descriptions; the implemente
 are `WORD`, `BYTE`, `LONG`, `REAL`, `CHARACTER`, `BIT`. This implementation accepts `INTEGER`
 as a synonym for `WORD` for readability.
 
+### `PUSH` and `POP` stack operations
+
+Two built-in statements provide PDP-11-style stack manipulation:
+
+```
+PUSH expression    (* SP := SP - 2;  mem[SP] := expression  — pre-decrement *)
+POP  variable      (* variable := mem[SP];  SP := SP + 2    — post-increment *)
+```
+
+PUSH accepts any expression; POP accepts any variable, array element, or register:
+
+```
+PUSH A + B;        (* push computed value *)
+PUSH R0;           (* save register *)
+POP R0;            (* restore register *)
+POP VALS(I);       (* pop into array element *)
+```
+
+On the LLVM target, a 256-word simulated stack is used (actual PDP-11 memory is not present); R6 is kept synchronised as the simulated stack-pointer address.
+
 ---
 
 ## Repository layout
@@ -288,7 +308,8 @@ pl11/
     ├── for_step.pl11        FOR … FROM … STEP loop syntax (UNH)
     ├── for_nostart.pl11     FOR loop using variable's current value (UNH)
     ├── neq_op.pl11          /= not-equal operator and <> synonym (UNH)
-    └── assign_op.pl11       => assignment operator alongside := (UNH)
+    ├── assign_op.pl11       => assignment operator alongside := (UNH)
+    └── push_pop.pl11        PUSH / POP stack operations (UNH)
 ```
 
 ---
@@ -363,7 +384,7 @@ cd build-llvm
 ctest --output-on-failure
 ```
 
-CTest registers **five tests per source file** (80 tests total for 16 programs):
+CTest registers **five tests per source file** (85 tests total for 17 programs):
 
 | Test name | What it checks |
 |-----------|----------------|

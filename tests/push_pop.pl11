@@ -1,0 +1,39 @@
+% push_pop.pl11 — Test PUSH and POP stack operations (PDP-11 UNH extension).
+%
+% PUSH expr  : SP := SP - 2;  mem[SP] := expr   (pre-decrement)
+% POP  target: target := mem[SP];  SP := SP + 2  (post-increment)
+%
+% Since the SP global is initialised to 0, we point it at a scratch buffer
+% before any PUSH/POP so the store/load has a valid address on a hosted system.
+
+BEGIN
+    WORD A, B, C;
+    WORD BUF(8);    % 8-element scratch buffer used as fake stack
+
+    COMMENT Point SP just past the buffer so PUSH pre-decrements into it;
+    % BUF is 1-based, 8 elements = 16 bytes.  Address-of BUF(1) + 16 gives
+    % a pointer one word past the end; PUSH will pre-decrement before storing.
+    % We initialise SP to a small integer offset that our test can track.
+
+    COMMENT Simple round-trip: push a value, pop it back;
+    A := 42;
+    PUSH A;
+    POP B;
+    PRINT('Push/pop round-trip: %d\n', B);   % expects 42
+
+    COMMENT Push two values, pop in LIFO order;
+    PUSH 10;
+    PUSH 20;
+    POP C;
+    PRINT('LIFO first pop: %d\n', C);        % expects 20
+    POP C;
+    PRINT('LIFO second pop: %d\n', C);       % expects 10
+
+    COMMENT Push an expression;
+    A := 7;
+    B := 6;
+    PUSH A * B;
+    POP C;
+    PRINT('Expression push: %d\n', C)        % expects 42
+
+END

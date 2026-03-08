@@ -116,6 +116,8 @@ statement
     | labelStmt
     | asmStmt
     | printStmt
+    | pushStmt
+    | popStmt
     | block
     ;
 
@@ -183,6 +185,17 @@ labelStmt
 
 asmStmt
     : ASM LPAREN STRING_LITERAL RPAREN
+    ;
+
+// PUSH / POP — PDP-11 stack operations (UNH extension)
+// PUSH pre-decrements SP by 2 then stores the value.
+// POP loads from SP then post-increments SP by 2.
+pushStmt
+    : PUSH expression
+    ;
+
+popStmt
+    : POP variable
     ;
 
 // PRINT: built-in formatted console output (maps to C printf)
@@ -333,6 +346,8 @@ STEP        : 'STEP' ;
 SP          : 'SP' ;
 PC          : 'PC' ;
 PRINT       : 'PRINT' ;
+POP         : 'POP' ;
+PUSH        : 'PUSH' ;
 
 // Operators and punctuation
 ASSIGN_OP   : ':=' ;

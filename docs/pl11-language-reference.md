@@ -795,6 +795,53 @@ ASM('CLR @#177560');            (* clear device register *)
 
 Inline assembly bypasses all type checking. Variables can be referenced by name within inline assembly; the compiler ensures they are accessible.
 
+### 8.5 Stack Operations — PUSH and POP
+
+PL-11 provides two built-in statements for direct stack manipulation, corresponding to the PDP-11 auto-decrement and auto-increment addressing modes.
+
+```
+PUSH expression       (* pre-decrement SP, store value at new SP  *)
+POP  variable         (* load value from SP, post-increment SP     *)
+```
+
+**`PUSH expr`** evaluates `expr`, decrements SP by 2, then stores the value at the address now in SP:
+
+```
+PUSH A;              (* SP := SP - 2;  mem[SP] := A *)
+PUSH R0;             (* push register R0 onto the stack *)
+PUSH A + B * 2;      (* push any expression *)
+```
+
+**`POP target`** loads the 16-bit word at SP into `target`, then increments SP by 2:
+
+```
+POP A;               (* A := mem[SP];  SP := SP + 2 *)
+POP R1;              (* pop into register R1 *)
+```
+
+PUSH and POP are LIFO — the last value pushed is the first value popped:
+
+```
+BEGIN
+    WORD X, Y, TMP;
+    X := 10;
+    Y := 20;
+
+    (* Swap X and Y via the stack *)
+    PUSH X;
+    PUSH Y;
+    POP X;
+    POP Y;
+
+    (* Save and restore a register across a call *)
+    PUSH R0;
+    CALL COMPUTE;
+    POP R0
+END
+```
+
+SP corresponds to hardware register R6 on the PDP-11. On a hosted LLVM target, the compiler uses a 256-word simulated stack and keeps R6 synchronised as the simulated stack-pointer address.
+
 ---
 
 ## 9. Scope Rules

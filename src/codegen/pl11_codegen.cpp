@@ -598,7 +598,90 @@ void Codegen::genStmt(ASTNode& node) {
         auto* ia = llvm::InlineAsm::get(asmTy, as->asmText, "",
                                          true  /* hasSideEffects */);
         builder_.CreateCall(ia);
+
+    } else if (auto* push = dynamic_cast<PushStmtNode*>(&node)) {
+        // PUSH expr — simulated PDP-11 pre-decrement stack push.
+        // Uses a 256-word global array (__pl11_stack) and an index (__pl11_sp_idx).
+        // R6 (SP) is kept synchronised as the simulated 16-bit address (idx * 2).
+        ensureSimStack();
+        llvm::Type* i16Ty = llvm::Type::getInt16Ty(ctx_);
+        llvm::Type* i32Ty = llvm::Type::getInt32Ty(ctx_);
+
+        // Pre-decrement index
+        llvm::Value* idxOld = builder_.CreateLoad(i32Ty, simStackIdx_, "sp.idx");
+        llvm::Value* idxNew = builder_.CreateSub(
+            idxOld, llvm::ConstantInt::get(i32Ty, 1), "sp.idx.push");
+        builder_.CreateStore(idxNew, simStackIdx_);
+
+        // Update R6 (simulated SP address = index * 2)
+        llvm::Value* spAddr = builder_.CreateMul(
+            idxNew, llvm::ConstantInt::get(i32Ty, 2), "sp.addr");
+        llvm::Value* spAddr16 = builder_.CreateTrunc(spAddr, i16Ty, "sp.i16");
+        builder_.CreateStore(spAddr16, getRegGlobal(6));
+
+        // Store value into stack[idxNew]
+        llvm::Value* val = genExpr(*push->value);
+        val = builder_.CreateIntCast(val, i16Ty, true, "push.val");
+        llvm::Value* zero = llvm::ConstantInt::get(i32Ty, 0);
+        llvm::Value* gep = builder_.CreateGEP(
+            simStack_->getValueType(), simStack_,
+            {zero, idxNew}, "push.slot");
+        builder_.CreateStore(val, gep);
+
+    } else if (auto* pop = dynamic_cast<PopStmtNode*>(&node)) {
+        // POP target — simulated PDP-11 post-increment stack pop.
+        ensureSimStack();
+        llvm::Type* i16Ty = llvm::Type::getInt16Ty(ctx_);
+        llvm::Type* i32Ty = llvm::Type::getInt32Ty(ctx_);
+
+        // Load value from stack[idx]
+        llvm::Value* idxOld = builder_.CreateLoad(i32Ty, simStackIdx_, "sp.idx");
+        llvm::Value* zero   = llvm::ConstantInt::get(i32Ty, 0);
+        llvm::Value* gep    = builder_.CreateGEP(
+            simStack_->getValueType(), simStack_,
+            {zero, idxOld}, "pop.slot");
+        llvm::Value* val = builder_.CreateLoad(i16Ty, gep, "pop.val");
+
+        // Store into target
+        llvm::Value* targetPtr = genLValue(*pop->target);
+        builder_.CreateStore(val, targetPtr);
+
+        // Post-increment index
+        llvm::Value* idxNew = builder_.CreateAdd(
+            idxOld, llvm::ConstantInt::get(i32Ty, 1), "sp.idx.pop");
+        builder_.CreateStore(idxNew, simStackIdx_);
+
+        // Update R6 (simulated SP address = index * 2)
+        llvm::Value* spAddr = builder_.CreateMul(
+            idxNew, llvm::ConstantInt::get(i32Ty, 2), "sp.addr");
+        llvm::Value* spAddr16 = builder_.CreateTrunc(spAddr, i16Ty, "sp.i16");
+        builder_.CreateStore(spAddr16, getRegGlobal(6));
     }
+}
+
+// ============================================================
+// Simulated PDP-11 stack helpers
+// ============================================================
+
+void Codegen::ensureSimStack() {
+    if (simStack_) return;
+    llvm::Type* i16Ty  = llvm::Type::getInt16Ty(ctx_);
+    llvm::Type* i32Ty  = llvm::Type::getInt32Ty(ctx_);
+    auto* stackArrTy   = llvm::ArrayType::get(i16Ty, 256);
+
+    // [256 x i16] zero-initialized global array
+    simStack_ = new llvm::GlobalVariable(
+        *module_, stackArrTy, false,
+        llvm::GlobalValue::PrivateLinkage,
+        llvm::ConstantAggregateZero::get(stackArrTy),
+        "__pl11_stack");
+
+    // i32 index, initialised to 256 (stack empty — grows downward)
+    simStackIdx_ = new llvm::GlobalVariable(
+        *module_, i32Ty, false,
+        llvm::GlobalValue::PrivateLinkage,
+        llvm::ConstantInt::get(i32Ty, 256),
+        "__pl11_sp_idx");
 }
 
 // ============================================================

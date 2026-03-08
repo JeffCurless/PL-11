@@ -81,6 +81,8 @@ enum class NodeKind {
     LABEL_STMT,
     ASM_STMT,
     PRINT_STMT,
+    PUSH_STMT,
+    POP_STMT,
 
     // Expressions
     INT_LITERAL,
@@ -321,6 +323,20 @@ struct PrintStmtNode : ASTNode {
     std::vector<FmtSpec>    specs; // parallel to args; filled by sema
     PrintStmtNode(std::string f, std::vector<ASTNodePtr> a, SourceLoc l)
         : ASTNode(NodeKind::PRINT_STMT, l), fmt(std::move(f)), args(std::move(a)) {}
+};
+
+// PUSH expr — PDP-11 stack push (pre-decrement SP, store value)
+struct PushStmtNode : ASTNode {
+    ASTNodePtr value;
+    PushStmtNode(ASTNodePtr v, SourceLoc l)
+        : ASTNode(NodeKind::PUSH_STMT, l), value(std::move(v)) {}
+};
+
+// POP target — PDP-11 stack pop (load value from SP, post-increment SP)
+struct PopStmtNode : ASTNode {
+    ASTNodePtr target;   // must be a valid lvalue
+    PopStmtNode(ASTNodePtr t, SourceLoc l)
+        : ASTNode(NodeKind::POP_STMT, l), target(std::move(t)) {}
 };
 
 // ============================================================

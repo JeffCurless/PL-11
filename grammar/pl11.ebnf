@@ -87,6 +87,8 @@ statement       ::= assignment
                   | label_stmt
                   | asm_stmt
                   | print_stmt
+                  | push_stmt
+                  | pop_stmt
                   | block .
 
 assignment      ::= expression '=>' variable      (* UNH form: value => target *)
@@ -130,6 +132,12 @@ goto_stmt       ::= 'GOTO' identifier .
 label_stmt      ::= identifier ':' statement .
 
 asm_stmt        ::= 'ASM' '(' string_literal ')' .
+
+(* PUSH / POP — PDP-11 stack operations (UNH extension)               *)
+(*   PUSH decrements SP by 2 then stores the value at the new SP.     *)
+(*   POP  loads a value from SP then increments SP by 2.              *)
+push_stmt       ::= 'PUSH' expression .
+pop_stmt        ::= 'POP'  variable .
 
 (* PRINT: built-in formatted console output (maps to C printf)    *)
 (* Format specifiers: %d  WORD/BYTE   signed decimal             *)

@@ -1,0 +1,4 @@
+Push/pop round-trip: 42
+LIFO first pop: 20
+LIFO second pop: 10
+Expression push: 42
