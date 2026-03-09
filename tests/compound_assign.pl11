@@ -1,0 +1,44 @@
+% compound_assign.pl11 — UNH compound modification: VAR OP EXPR; is shorthand
+%   for VAR OP EXPR => VAR.  Works with any arithmetic operator.
+
+BEGIN
+    WORD I, COUNT, SUM, PRODUCT;
+
+    % Increment: I + 1 is shorthand for I + 1 => I
+    3 => I;
+    I + 1;
+    PRINT('I after +1:   %d\n', I);       % expects 4
+
+    % Decrement: COUNT - 1 is shorthand for COUNT - 1 => COUNT
+    10 => COUNT;
+    COUNT - 1;
+    PRINT('COUNT after -1: %d\n', COUNT); % expects 9
+
+    % Multiply: PRODUCT * 3 is shorthand for PRODUCT * 3 => PRODUCT
+    5 => PRODUCT;
+    PRODUCT * 3;
+    PRINT('PRODUCT *3:  %d\n', PRODUCT);  % expects 15
+
+    % Compound expression on right side: SUM + I * COUNT
+    2 => SUM;
+    4 => I;
+    9 => COUNT;
+    SUM + I * COUNT;   % SUM + 4*9 = SUM + 36 = 38
+    PRINT('SUM complex: %d\n', SUM);      % expects 38
+
+    % In a loop — I + 1 as the loop increment
+    0 => SUM;
+    1 => I;
+    WHILE I <= 5 DO
+        BEGIN
+            SUM + I;   % accumulate: SUM = SUM + I
+            I + 1      % advance:    I   = I + 1
+        END;
+    PRINT('Loop sum 1..5: %d\n', SUM);   % expects 15
+
+    % Register modification: R0 + 1 is shorthand for R0 + 1 => R0
+    7 => R0;
+    R0 + 1;
+    PRINT('R0 after +1: %d\n', R0)       % expects 8
+
+END

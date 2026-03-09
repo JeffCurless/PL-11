@@ -77,6 +77,8 @@ enum class TokenKind {
     TOK_ARROW,          // =>  (UNH: value => lvalue assignment)
     TOK_EQ,             // =
     TOK_NEQ,            // /=
+    TOK_REF,            // REF  (UNH: address-of)
+    TOK_IND,            // IND  (UNH: indirect / dereference)
     TOK_LT,             // <
     TOK_GT,             // >
     TOK_LEQ,            // <=
@@ -85,7 +87,6 @@ enum class TokenKind {
     TOK_MINUS,          // -
     TOK_STAR,           // *
     TOK_SLASH,          // /
-    TOK_AT,             // @
     TOK_DEREF,          // ^
 
     // Punctuation

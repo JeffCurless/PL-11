@@ -205,22 +205,30 @@ Bitwise operations (`AND`, `OR`, `NOT`, `XOR`) and shift operations (`SHL`, `SHR
 
 ### 3.5 Address and Pointer Types
 
-PL-11 allows declaring variables as **addresses** (pointers) to other values. The address of a variable can be taken, and addresses can be dereferenced:
+PL-11 (UNH dialect) provides two keyword operators for address manipulation:
+
+| Keyword | Syntax | Meaning |
+|---------|--------|---------|
+| `REF`   | `REF(var)` | Produces the machine address of `var` |
+| `IND`   | `IND(expr)` | Dereferences the address in `expr`; valid as both rvalue and lvalue |
 
 ```
 WORD 100 ARRAY BUF;        % array of 100 integers
 WORD PTR;                  % can hold an address
 
-@BUF => PTR;               % @ takes address of BUF
-42   => PTR^;              % ^ dereferences PTR
+REF(BUF) => PTR;           % REF takes address of BUF
+42 => IND(PTR);            % IND dereferences PTR (write)
+IND(PTR) + 1 => R0;        % IND dereferences PTR (read), add 1
 ```
 
-Direct numeric addresses can be assigned to pointer variables for memory-mapped I/O:
+Direct numeric addresses (octal literals with `B` suffix) can be assigned to pointer variables for memory-mapped I/O:
 
 ```
 WORD STATUSREG;
 177560B => STATUSREG;     % PDP-11 octal address of console status
 ```
+
+**Note:** On native PDP-11 hardware, `WORD` variables are 16 bits and pointers are also 16 bits, so a `WORD` variable can hold any address. On 64-bit host platforms (e.g., the LLVM/aarch64 backend), pointer addresses are 64 bits and will not fit in a `WORD`. REF/IND syntax is fully supported at the lexer, parser, semantic, and IR levels; runtime pointer chasing on 64-bit hosts is architecture-specific.
 
 ---
 
@@ -365,7 +373,47 @@ R0        => R1;         % copy register R0 to R1
 
 The value expression (left of `=>`) may be any expression. The target (right of `=>`) must be a variable, array element, or register name — not an arbitrary expression.
 
-### 5.5 Operator Precedence
+### 5.5 Compound Modification
+
+A **compound modification statement** (UNH extension) is a shorthand for modifying a variable in-place. When a statement consists solely of an identifier, an arithmetic operator, and an expression, it is equivalent to writing the full assignment form with `=>`:
+
+```
+variable op expression ;
+```
+
+is identical to:
+
+```
+variable op expression => variable ;
+```
+
+#### Operators that apply
+
+All arithmetic operators at both precedence levels are valid:
+
+- Add-level: `+`, `-`, `OR`, `XOR`
+- Mul-level: `*`, `/`, `MOD`, `AND`, `SHL`, `SHR`, `SHRA`
+
+#### Valid targets
+
+The left-hand identifier must be a **simple scalar variable or register** — not a subscripted array element. Array element modification must use the explicit `=>` form:
+
+```
+A(I) + 1 => A(I);        % explicit form required for array elements
+```
+
+#### Examples
+
+```
+% These all modify the variable in-place:
+R0 + 1;             % equivalent to  R0 + 1 => R0
+COUNT - 1;          % equivalent to  COUNT - 1 => COUNT
+SUM + I;            % equivalent to  SUM + I => SUM
+PRODUCT * 3;        % equivalent to  PRODUCT * 3 => PRODUCT
+SUM + I * COUNT;    % right-hand expression may be complex
+```
+
+### 5.6 Operator Precedence
 
 From highest (evaluated first) to lowest:
 
@@ -713,9 +761,9 @@ The PDP-11 has 8 general-purpose registers named R0 through R7. R6 is the stack 
 PL-11 allows referencing registers by name in expressions and assignments:
 
 ```
-42      => R0;     % load 42 into register R0
-R1 + R2 => X;      % use register values in expressions
-@BUFFER => R3;     % load address of BUFFER into R3
+42           => R0;     % load 42 into register R0
+R1 + R2      => X;      % use register values in expressions
+REF(BUFFER)  => R3;     % load address of BUFFER into R3
 ```
 
 Register variables are not allocated in memory; they refer directly to hardware registers. Using registers in high-level code is architecture-specific and produces a warning if the compiler targets a non-PDP-11 backend.
@@ -1058,15 +1106,15 @@ AND         ARRAY       ASM         BEGIN       BIT
 BYTE        CALL        CASE        CHARACTER   COMMENT
 CONSTANT    DO          DOWNTO      ELSE        END
 FLOAT       FOR         FORWARD     FROM        GOTO
-IF          IN          INTEGER     LONG        MOD
-NOT         OF          OR          OUT         PC
-POP         PRINT       PROCEDURE   PUSH        REAL
-REPEAT      RETURN      SHL         SHR         SHRA
-SP          STEP        THEN        TO          UNTIL
-WHILE       WORD        XOR
+IF          IN          IND         INTEGER     LONG
+MOD         NOT         OF          OR          OUT
+PC          POP         PRINT       PROCEDURE   PUSH
+REAL        REF         REPEAT      RETURN      SHL
+SHR         SHRA        SP          STEP        THEN
+TO          UNTIL       WHILE       WORD        XOR
 ```
 
-`INTEGER` and `FLOAT` are reserved aliases for `WORD` and `REAL` respectively. `SP` and `PC` are reserved aliases for the stack-pointer and program-counter registers. `FROM` and `STEP` introduce the UNH FOR loop extensions. `PUSH` and `POP` are built-in stack operations. `COMMENT` introduces a keyword comment.
+`INTEGER` and `FLOAT` are reserved aliases for `WORD` and `REAL` respectively. `SP` and `PC` are reserved aliases for the stack-pointer and program-counter registers. `FROM` and `STEP` introduce the UNH FOR loop extensions. `PUSH` and `POP` are built-in stack operations. `REF` and `IND` are UNH address-of and indirect operators. `COMMENT` introduces a keyword comment.
 
 ## Appendix B: PDP-11 Register Names
 
@@ -1084,6 +1132,8 @@ SP  PC
 
 | Operator  | Type       | Precedence | Associates |
 |-----------|------------|------------|------------|
+| `REF(v)`  | Address    | 0 (prefix) | —          |
+| `IND(e)`  | Indirect   | 0 (prefix) | —          |
 | `-` (unary) | Arithmetic | 1        | Right      |
 | `NOT`     | Logical    | 1          | Right      |
 | `*`       | Arithmetic | 2          | Left       |

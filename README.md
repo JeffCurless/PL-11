@@ -161,6 +161,17 @@ ARRAY 4    WORD  ROW, COL;    % two separate arrays of 4
 
 Both syntaxes may be freely mixed within the same program. The word `ARRAY` is a reserved keyword.
 
+#### Compound modification statement
+
+A shorthand for modifying a simple variable or register in-place. When a statement consists of an identifier, an arithmetic operator, and an expression, it is equivalent to the full `=>` assignment form:
+
+```
+R0 + 1;        % equivalent to  R0 + 1 => R0
+COUNT - 1;     % equivalent to  COUNT - 1 => COUNT
+```
+
+All arithmetic operators are valid (`+`, `-`, `*`, `/`, `MOD`, `AND`, `OR`, `XOR`, `SHL`, `SHR`, `SHRA`). The target must be a simple scalar variable or register — subscripted array elements require the explicit `=>` form.
+
 #### `DO` loop
 
 A general loop form with an optional body and optional `UNTIL` exit condition:
@@ -299,7 +310,8 @@ pl11/
     ├── for_nostart.pl11     FOR loop using variable's current value
     ├── neq_op.pl11          /= not-equal operator
     ├── assign_op.pl11       => assignment operator
-    └── push_pop.pl11        PUSH / POP stack operations (UNH)
+    ├── push_pop.pl11        PUSH / POP stack operations (UNH)
+    └── compound_assign.pl11 Compound modification statement: variable op expr shorthand (UNH)
 ```
 
 ---
@@ -374,7 +386,7 @@ cd build-llvm
 ctest --output-on-failure
 ```
 
-CTest registers **five tests per source file** (85 tests total for 17 programs):
+CTest registers **five tests per source file** (90 tests total for 18 programs):
 
 | Test name | What it checks |
 |-----------|----------------|

@@ -104,6 +104,7 @@ paramMode
 
 statement
     : assignment
+    | modifyStmt
     | ifStmt
     | whileStmt
     | forStmt
@@ -123,6 +124,18 @@ statement
 
 assignment
     : expression ARROW variable       // value => target
+    ;
+
+// UNH compound modification — shorthand for: variable op expression => variable
+// The IDENTIFIER must be a simple scalar variable or register (not a subscripted array element).
+// Valid operators: all arithmetic ops — addOp (+, -, OR, XOR) and mulOp (*, /, MOD, AND, SHL, SHR, SHRA).
+modifyStmt
+    : IDENTIFIER arithmeticOp expression
+    ;
+
+arithmeticOp
+    : addOp
+    | mulOp
     ;
 
 ifStmt
@@ -230,12 +243,13 @@ unaryExpr
     ;
 
 postfixExpr
-    : primaryExpr (DEREF | LPAREN argList RPAREN)*
+    : primaryExpr (LPAREN argList RPAREN)*
     ;
 
 primaryExpr
     : literal
-    | AT variable
+    | REF LPAREN variable RPAREN        // address-of (UNH)
+    | IND LPAREN expression RPAREN      // indirect / dereference (UNH)
     | functionCall
     | variable
     | LPAREN expression RPAREN
@@ -345,6 +359,8 @@ PC          : 'PC' ;
 PRINT       : 'PRINT' ;
 POP         : 'POP' ;
 PUSH        : 'PUSH' ;
+REF         : 'REF' ;       // address-of (UNH)
+IND         : 'IND' ;       // indirect / dereference (UNH)
 
 // Operators and punctuation
 ARROW       : '=>' ;   // value => target assignment
@@ -359,8 +375,7 @@ PLUS        : '+' ;
 MINUS       : '-' ;
 STAR        : '*' ;
 SLASH       : '/' ;
-AT          : '@' ;
-DEREF       : '^' ;
+// AT and DEREF (^ @) removed — UNH dialect uses REF() and IND() keywords instead
 LPAREN      : '(' ;
 RPAREN      : ')' ;
 SEMI        : ';' ;

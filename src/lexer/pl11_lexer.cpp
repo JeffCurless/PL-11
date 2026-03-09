@@ -33,6 +33,7 @@ const std::unordered_map<std::string, TokenKind> Lexer::keywords_ = {
     {"GOTO",      TokenKind::TOK_GOTO},
     {"IF",        TokenKind::TOK_IF},
     {"IN",        TokenKind::TOK_IN},
+    {"IND",       TokenKind::TOK_IND},
     {"INTEGER",   TokenKind::TOK_INTEGER},
     {"LONG",      TokenKind::TOK_LONG},
     {"MOD",       TokenKind::TOK_MOD},
@@ -46,6 +47,7 @@ const std::unordered_map<std::string, TokenKind> Lexer::keywords_ = {
     {"PUSH",      TokenKind::TOK_PUSH},
     {"PROCEDURE", TokenKind::TOK_PROCEDURE},
     {"REAL",      TokenKind::TOK_REAL},
+    {"REF",       TokenKind::TOK_REF},
     {"REPEAT",    TokenKind::TOK_REPEAT},
     {"RETURN",    TokenKind::TOK_RETURN},
     {"SHL",       TokenKind::TOK_SHL},
@@ -76,9 +78,9 @@ const char* tokenKindName(TokenKind k) {
     CASE(TOK_RETURN); CASE(TOK_SHL); CASE(TOK_SHR); CASE(TOK_SHRA);
     CASE(TOK_SP); CASE(TOK_STEP); CASE(TOK_THEN); CASE(TOK_TO); CASE(TOK_UNTIL);
     CASE(TOK_WHILE); CASE(TOK_WORD); CASE(TOK_XOR); CASE(TOK_REGISTER);
-    CASE(TOK_ARROW); CASE(TOK_EQ); CASE(TOK_NEQ); CASE(TOK_LT);
+    CASE(TOK_ARROW); CASE(TOK_EQ); CASE(TOK_NEQ); CASE(TOK_REF); CASE(TOK_IND); CASE(TOK_LT);
     CASE(TOK_GT); CASE(TOK_LEQ); CASE(TOK_GEQ); CASE(TOK_PLUS);
-    CASE(TOK_MINUS); CASE(TOK_STAR); CASE(TOK_SLASH); CASE(TOK_AT);
+    CASE(TOK_MINUS); CASE(TOK_STAR); CASE(TOK_SLASH);
     CASE(TOK_DEREF); CASE(TOK_LPAREN); CASE(TOK_RPAREN); CASE(TOK_SEMI);
     CASE(TOK_COMMA); CASE(TOK_COLON); CASE(TOK_DOT); CASE(TOK_EOF);
     CASE(TOK_ERROR);
@@ -377,7 +379,6 @@ Token Lexer::readOperator() {
     case '/':
         if (c1 == '=') return tok(TokenKind::TOK_NEQ, 2);
         return tok(TokenKind::TOK_SLASH, 1);
-    case '@':  return tok(TokenKind::TOK_AT,     1);
     case '^':  return tok(TokenKind::TOK_DEREF,  1);
     case '(':  return tok(TokenKind::TOK_LPAREN, 1);
     case ')':  return tok(TokenKind::TOK_RPAREN, 1);

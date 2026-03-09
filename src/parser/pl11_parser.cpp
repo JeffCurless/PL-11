@@ -106,7 +106,8 @@ bool Parser::isStatementStart() const {
     case TokenKind::TOK_MINUS:
     case TokenKind::TOK_NOT:
     case TokenKind::TOK_LPAREN:
-    case TokenKind::TOK_AT:
+    case TokenKind::TOK_REF:
+    case TokenKind::TOK_IND:
         return true;
     default:
         return false;
@@ -384,7 +385,7 @@ ASTNodePtr Parser::parseStatement() {
         return parsePushStmt();
     case TokenKind::TOK_POP:
         return parsePopStmt();
-    // Expression-headed statements: assignment (both := and => forms) and labels
+    // Expression-headed statements: assignment and labels
     case TokenKind::TOK_IDENTIFIER:
     case TokenKind::TOK_REGISTER:
     case TokenKind::TOK_INTEGER_LIT:
@@ -395,7 +396,8 @@ ASTNodePtr Parser::parseStatement() {
     case TokenKind::TOK_MINUS:
     case TokenKind::TOK_NOT:
     case TokenKind::TOK_LPAREN:
-    case TokenKind::TOK_AT:
+    case TokenKind::TOK_REF:
+    case TokenKind::TOK_IND:
         return parseExprStmt();
     default:
         throw error("Expected statement, got '" + cur_.text + "'");
@@ -404,6 +406,7 @@ ASTNodePtr Parser::parseStatement() {
 
 // Parse an expression-headed statement:
 //   value => lvalue        (UNH assignment: value on left, target on right)
+//   var op expr            (UNH compound modification: VAR OP EXPR → VAR OP EXPR => VAR)
 //   identifier : statement (label)
 ASTNodePtr Parser::parseExprStmt() {
     SourceLoc loc = cur_.loc;
@@ -485,21 +488,43 @@ ASTNodePtr Parser::parseExprStmt() {
                 expr = std::make_unique<BinaryExprNode>(op, std::move(expr), std::move(rhs), loc);
             }
         }
-        // Now must be => (or error)
+        // Explicit => assignment
         if (check(TokenKind::TOK_ARROW)) {
             advance();
             auto target = parseLValue();
             return std::make_unique<AssignStmtNode>(std::move(target), std::move(expr), loc);
         }
+        // Implicit compound modification: VAR OP EXPR; → VAR OP EXPR => VAR
+        // Valid only when the top-level expression is an arithmetic binary op
+        // whose direct left operand is a simple (non-subscripted) identifier.
+        if (auto* bin = dynamic_cast<BinaryExprNode*>(expr.get())) {
+            if ((isAddOp(bin->op) || isMulOp(bin->op)) &&
+                dynamic_cast<IdentifierNode*>(bin->left.get())) {
+                auto target = std::make_unique<IdentifierNode>(name, nameLoc);
+                return std::make_unique<AssignStmtNode>(std::move(target), std::move(expr), loc);
+            }
+        }
         throw error("Expected '=>' in assignment statement");
     }
 
-    // Non-identifier expression-headed statement (literal, unary, paren, register, @):
-    // Parse full expression, then expect =>.
+    // Non-identifier expression-headed statement (register, literal, unary, paren, @):
+    // Parse full expression, then require => or implicit compound modification.
     auto value = parseExpression();
-    expect(TokenKind::TOK_ARROW);
-    auto target = parseLValue();
-    return std::make_unique<AssignStmtNode>(std::move(target), std::move(value), loc);
+    if (check(TokenKind::TOK_ARROW)) {
+        advance();
+        auto target = parseLValue();
+        return std::make_unique<AssignStmtNode>(std::move(target), std::move(value), loc);
+    }
+    // Implicit compound modification: REG OP EXPR; → REG OP EXPR => REG
+    if (auto* bin = dynamic_cast<BinaryExprNode*>(value.get())) {
+        if (isAddOp(bin->op) || isMulOp(bin->op)) {
+            if (auto* reg = dynamic_cast<RegisterNode*>(bin->left.get())) {
+                auto target = std::make_unique<RegisterNode>(reg->regNum, loc);
+                return std::make_unique<AssignStmtNode>(std::move(target), std::move(value), loc);
+            }
+        }
+    }
+    throw error("Expected '=>' in assignment statement");
 }
 
 // Parse an assignment target (lvalue) for the => form.
@@ -527,8 +552,15 @@ ASTNodePtr Parser::parseLValue() {
     } else if (check(TokenKind::TOK_PC)) {
         lval = std::make_unique<RegisterNode>(7, loc);
         advance();
+    } else if (check(TokenKind::TOK_IND)) {
+        // IND(ptr) as lvalue — write through pointer
+        advance();
+        expect(TokenKind::TOK_LPAREN);
+        auto ptr = parseExpression();
+        expect(TokenKind::TOK_RPAREN);
+        lval = std::make_unique<DerefExprNode>(std::move(ptr), loc);
     } else {
-        throw error("Expected assignment target (variable or register), got '" + cur_.text + "'");
+        throw error("Expected assignment target (variable, register, or IND(ptr)), got '" + cur_.text + "'");
     }
 
     // Dereference chain
@@ -838,11 +870,21 @@ ASTNodePtr Parser::parsePrimaryExpr() {
         advance();
         return std::make_unique<RegisterNode>(7, loc);
     }
-    case TokenKind::TOK_AT: {
+    case TokenKind::TOK_REF: {
+        // REF(var) — address of variable (UNH form of address-of)
         advance();
-        // @variable — address-of
-        auto var = parsePrimaryExpr();
+        expect(TokenKind::TOK_LPAREN);
+        auto var = parseExpression();
+        expect(TokenKind::TOK_RPAREN);
         return std::make_unique<AddrOfExprNode>(std::move(var), loc);
+    }
+    case TokenKind::TOK_IND: {
+        // IND(expr) — indirect through address (UNH form of dereference)
+        advance();
+        expect(TokenKind::TOK_LPAREN);
+        auto ptr = parseExpression();
+        expect(TokenKind::TOK_RPAREN);
+        return std::make_unique<DerefExprNode>(std::move(ptr), loc);
     }
     case TokenKind::TOK_LPAREN: {
         advance();

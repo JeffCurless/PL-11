@@ -817,7 +817,9 @@ llvm::Value* Codegen::genExpr(ASTNode& node) {
 
     if (auto* n = dynamic_cast<DerefExprNode*>(&node)) {
         llvm::Value* ptr = genExpr(*n->ptr);
-        // Cast integer to pointer then load
+        // Extend to pointer-sized integer before inttoptr to avoid truncation
+        if (ptr->getType()->getIntegerBitWidth() < 64)
+            ptr = builder_.CreateZExt(ptr, builder_.getInt64Ty(), "ptr_ext");
         auto* ptrTy = llvm::PointerType::getUnqual(ctx_);
         ptr = builder_.CreateIntToPtr(ptr, ptrTy, "deref_ptr");
         return builder_.CreateLoad(llvm::Type::getInt16Ty(ctx_), ptr, "deref");
@@ -825,7 +827,9 @@ llvm::Value* Codegen::genExpr(ASTNode& node) {
 
     if (auto* n = dynamic_cast<AddrOfExprNode*>(&node)) {
         llvm::Value* lval = genLValue(*n->var);
-        return builder_.CreatePtrToInt(lval, llvm::Type::getInt16Ty(ctx_), "addr");
+        // Use pointer-sized integer (i64 on 64-bit targets) so the address is not truncated
+        auto* ptrIntTy = builder_.getInt64Ty();
+        return builder_.CreatePtrToInt(lval, ptrIntTy, "addr");
     }
 
     if (auto* n = dynamic_cast<IndexExprNode*>(&node)) {
@@ -892,6 +896,8 @@ llvm::Value* Codegen::genLValue(ASTNode& node) {
 
     if (auto* n = dynamic_cast<DerefExprNode*>(&node)) {
         llvm::Value* ptrVal = genExpr(*n->ptr);
+        if (ptrVal->getType()->getIntegerBitWidth() < 64)
+            ptrVal = builder_.CreateZExt(ptrVal, builder_.getInt64Ty(), "ptr_ext");
         auto* ptrTy = llvm::PointerType::getUnqual(ctx_);
         return builder_.CreateIntToPtr(ptrVal, ptrTy, "deref_lval");
     }

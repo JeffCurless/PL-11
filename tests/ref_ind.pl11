@@ -1,0 +1,26 @@
+% ref_ind.pl11 — UNH REF and IND keyword syntax tests
+%
+% REF(var) => target  — places the address of var into target
+% IND(ptr)            — indirects through ptr to access the item
+%
+% NOTE: On native PDP-11 hardware, WORD variables hold 16-bit pointers,
+% so REF/IND work naturally.  On 64-bit hosts this test validates the
+% lexer, parser, semantic analyser, and IR emitter only; the exec test
+% is omitted because 64-bit addresses do not fit in a 16-bit WORD.
+
+BEGIN
+    WORD X, Y, PTR, RESULT;
+
+    % Store a value and take its address
+    42 => X;
+    REF(X) => PTR;
+
+    % Write through an indirect pointer
+    7 => Y;
+    REF(Y) => PTR;
+    IND(PTR) + 1 => RESULT;    % read Y via IND, add 1, store in RESULT
+
+    % IND as an lvalue (write-through)
+    99 => IND(PTR)
+
+END

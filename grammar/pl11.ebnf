@@ -75,6 +75,7 @@ param_mode      ::= 'IN' 'OUT'
 % ============================================================
 
 statement       ::= assignment
+                  | modify_stmt
                   | if_stmt
                   | while_stmt
                   | for_stmt
@@ -92,6 +93,14 @@ statement       ::= assignment
                   | block .
 
 assignment      ::= expression '=>' variable .    % value => target
+
+% UNH compound modification: shorthand for  variable op expression => variable .
+% The identifier must be a simple scalar variable or register (not a subscripted array element).
+% Valid operators: all arithmetic operators — add-level (+, -, OR, XOR)
+%                  and mul-level (*, /, MOD, AND, SHL, SHR, SHRA).
+modify_stmt     ::= identifier arithmetic_op expression .
+
+arithmetic_op   ::= add_op | mul_op .
 
 if_stmt         ::= 'IF' expression 'THEN' statement
                     [ 'ELSE' statement ] .
@@ -171,21 +180,26 @@ unary_expr      ::= '-' unary_expr
 
 postfix_expr    ::= primary_expr { postfix_op } .
 
-postfix_op      ::= '^'                              % dereference
-                  | '(' arg_list ')'                 % function call / array index
+postfix_op      ::= '(' arg_list ')'                 % function call / array index
                   .
 
 primary_expr    ::= literal
                   | variable
-                  | '@' variable                     % address-of
+                  | 'REF' '(' variable ')'            % address-of (UNH)
+                  | 'IND' '(' expression ')'           % indirect / dereference (UNH)
                   | function_call
                   | '(' expression ')' .
 
 function_call   ::= identifier '(' arg_list ')' .
 
 variable        ::= identifier [ '(' index_list ')' ]    % array element
-                  | variable '^'                          % dereferenced pointer
                   | register_name .                       % hardware register
+
+% IND(expr) is also a valid lvalue target on the left of '=>':
+%   IND(ptr) is used both as an rvalue (load through pointer)
+%   and as an lvalue (store through pointer):
+%     IND(ptr) + 1 => RESULT     % read through ptr, add 1, store in RESULT
+%     99 => IND(ptr)             % write 99 through ptr
 
 index_list      ::= expression { ',' expression } .
 
